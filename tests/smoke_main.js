@@ -289,6 +289,115 @@ function main() {
     ok(!screen2.includes('我在看你') && !/gonglue|gl_/i.test(screen2),
       'S10f 自由输入分支屏显红线零命中（TW-2 / 元层禁词）');
 
+    /* ── S11 ★ARG-BUILD-05-rev：右下角常驻系统时钟 ─────────────────────
+       正常访问路径下，常驻时钟元素必须存在；且面板措辞克制、不含「调试/debug」，
+       关闭后面板从 DOM 移除。 */
+    const clockEl = env.doc.querySelector('[data-sd-clock]');
+    ok(!!clockEl, 'S11a 右下角常驻时钟元素存在（正常访问路径）');
+    if (clockEl) {
+      ok(/^\d{1,2}:\d{2}$/.test(clockEl.textContent || ''),
+        `S11b 时钟显示 HH:MM（实得「${clockEl.textContent}」）`);
+    }
+    if (clockEl) {
+      clockEl.dispatch('click');                       // 点击 → 弹出设置面板
+      const panel = env.doc.querySelector('[data-sd-clock-panel]');
+      ok(!!panel, 'S11c 点击时钟弹出设置面板');
+      if (panel) {
+        const ptext = panel.textContent || '';
+        ok(!/调试|debug/i.test(ptext), 'S11d 面板措辞克制（无「调试/debug」）');
+        ok(ptext.includes('回到此刻'), 'S11e 面板含「回到此刻」清零入口');
+        ok(!!panel.querySelector('[data-sd-clock-step="+1h"]'),
+          'S11f 面板含 +1h 步进按钮（可快进）');
+        SD.Clock.close();                              // 关闭即移除 DOM（任务要求）
+        ok(!env.doc.querySelector('[data-sd-clock-panel]'), 'S11g 关闭后面板从 DOM 移除');
+      }
+    }
+
+    /* ── S12 ★ARG-BUILD-05-rev：调时间快进 6h 冷却锁 ──────────────────
+       now() = Date.now() + time_warp_ms；调偏移即可快进绕过 6h 冷却，
+       且偏移钳制在 ±7 天（防年份错乱，X-2 安全）。 */
+    SD.Timeline.armNextAvailable();
+    const st0 = SD.Timeline.nextAvailableState();
+    ok(st0.early === true, 'S12a 初始（偏移0）6h 冷却未到（early=true）');
+
+    SD.State.setWarp(7 * 3600 * 1000);                // +7h，越过 6h 冷却
+    const st1 = SD.Timeline.nextAvailableState();
+    ok(st1.early === false, 'S12b ★+7h 偏移后冷却被快进绕过（early=false，可直接重访）');
+    ok(SD.State.getWarp() === 7 * 3600 * 1000, 'S12c 偏移已写入 time_warp_ms（+7h）');
+
+    SD.State.setWarp(0);                              // 回到此刻
+    const st2 = SD.Timeline.nextAvailableState();
+    ok(st2.early === true, 'S12d 「回到此刻」清空偏移后冷却恢复（early=true）');
+
+    SD.State.setWarp(999 * 24 * 3600 * 1000);         // 远超 7 天
+    ok(SD.State.getWarp() === 7 * 24 * 3600 * 1000,
+      'S12e 偏移钳制在 +7 天（防年份错乱，X-2 安全）');
+    SD.State.setWarp(0);
+
+    /* ── S13 ★DEF-01 / TQ-01：{pre_visit_ts} 回访提示形态 ──────────────
+       裸 HH:MM 会在桌面壳同屏被系统托盘时钟吃掉「早 3 天」的信息量，
+       A-2 这个 A 类强异常就静默失效（且旧实现直接吐绝对年月日，破 X-2）。
+       修复形态：「N 天前 · HH:MM」—— 相对日 + 绝对时分，永不含年份。 */
+    const screenNow = env.doc.body.textContent;
+    const retLine = env.doc.getElementById('sd-stream')
+      .querySelectorAll('.sd-sys')
+      .map((n) => n.textContent || '')
+      .find((t) => t.includes('存档 002 已写入'));
+
+    ok(!!retLine, 'S13a 回访提示行已渲染（SS-078 · A-2 时间倒错）');
+    if (retLine) {
+      console.log('\n  回访提示行实测渲染：\n    · ' + retLine);
+      ok(/\d+\s*天前\s*·\s*\d{1,2}:\d{2}/.test(retLine),
+        `S13b ★DEF-01 形态为「N 天前 · HH:MM」（实得「${retLine}」）`);
+      ok(!/(19|20)\d{2}/.test(retLine),
+        `S13c ★X-2 回访提示行不含绝对年份（实得「${retLine}」）`);
+      ok(!/^\s*存档 002 已写入 · \d{1,2}:\d{2}\s*$/.test(retLine),
+        'S13d 回访提示不是裸 HH:MM（桌面壳同屏不与托盘时钟撞脸）');
+    }
+
+    /* 整屏绝对年份/日期扫描（X-2 硬门槛，不限于 2011） */
+    const yearHits = screenNow.match(/(?:19|20)\d{2}(?:\s*[-/年]\s*\d{1,2})?/g) || [];
+    ok(yearHits.length === 0,
+      `S13e ★X-2 整屏 0 个绝对年份/日期（命中 ${yearHits.length}`
+      + `${yearHits.length ? '：' + [...new Set(yearHits)].join(' | ') : ''}）`);
+
+    /* 同屏双时钟辨识度：托盘时钟裸 HH:MM，回访提示必须带相对日前缀 */
+    const trayEl = env.doc.querySelector('[data-sd-clock]');
+    const trayTxt = trayEl ? (trayEl.textContent || '') : '';
+    ok(/^\d{1,2}:\d{2}$/.test(trayTxt) && !!retLine && /天前/.test(retLine),
+      `S13f ★同屏两个时钟形态可区分（托盘「${trayTxt}」= 裸 HH:MM`
+      + ` vs 回访「N 天前 · HH:MM」）`);
+
+    /* 相对天数由 offset 折算，非写死「3」（通用性回归） */
+    ok(SD.Timeline.relDayLabel(-259200000) === '3 天前'
+      && SD.Timeline.relDayLabel(-86400000) === '1 天前'
+      && SD.Timeline.relDayLabel(-604800000) === '7 天前',
+      'S13g 相对天数按 pre_visit_offset_ms 通用折算（−1d/−3d/−7d 各自正确）');
+    ok(!/(19|20)\d{2}/.test(SD.Timeline.fmtRelStamp(Date.now(), -259200000)),
+      'S13h fmtRelStamp 任何输入下都不产出年份（X-2 结构性保证）');
+
+    /* ── S14 ★DEF-02：A 类 beat 的重播粒度（E7 语义） ──────────────────
+       A-2 横跨 7 个节点共用一个 budget_id。同会话内必须整段播完；
+       只有【刷新后再来】才不重播。两条都要守住，缺一不可：
+         · 守不住前者 → SS-078 静默，A-2 白花（本次修的就是它）
+         · 守不住后者 → 刷新就再吓一次，E7 破功                       */
+    ok(SD.State.hasSpent('A', 'A-2') === true,
+      'S14a A-2 已在本会话记账（预算仍是 2/2，未多占席位）');
+    ok(SD.State.spentBefore('A', 'A-2') === false,
+      'S14b ★同会话内 A-2 beat 不被自我截断（spentBefore=false → 7 个节点整段播完）');
+
+    const a2Nodes = ['SN-076', 'SN-077', 'SS-078', 'SN-082', 'SN-083'];
+    const unread = a2Nodes.filter((id) => !SD.State.isRead('node:' + id));
+    ok(unread.length === 0,
+      `S14c ★A-2 beat 全部节点均已播出（漏播 ${unread.length}`
+      + `${unread.length ? '：' + unread.join(', ') : ''}）`);
+
+    SD.State.load();                                  // 模拟一次刷新：重读存档 + 重取快照
+    ok(SD.State.spentBefore('A', 'A-2') === true,
+      'S14d ★E7 刷新不重播：重载后 A-2 转为已花，回访不再重演强异常');
+    ok(SD.State.spentBefore('A', 'A-1') === true,
+      'S14e ★E7 刷新不重播：A-1 同样不重演');
+
     report();
   } finally {
     site.cleanup();

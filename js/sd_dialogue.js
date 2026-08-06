@@ -76,8 +76,11 @@
       ),
       '{UNFED_TITLE}': unfedTitle(),
       /* A-2 时间倒错：相对生成的时间戳（X-2 —— 这里永远不会是 2011，
-         绝对历史日期属论坛地层，不由本页产出）。 */
-      '{pre_visit_ts}': T().fmtStamp(T().preVisitTs() || Date.now()),
+         绝对历史日期属论坛地层，不由本页产出）。
+         DEF-01/TQ-01：形态为「N 天前 · HH:MM」。相对日前缀不可省 ——
+         纯 HH:MM 会在桌面壳同屏被系统托盘时钟吃掉「早 3 天」的信息量，
+         A-2 这个 A 类强异常就静默失效了。 */
+      '{pre_visit_ts}': T().preVisitStamp(),
       /* L4-c 软倒计时：只在 soft_countdown 触发后才有值 */
       '{now+6h}': nextAvailableClock()
     };
@@ -147,11 +150,15 @@
     if (t) R().setTitle(interp(t));
   }
 
-  /* 恐怖预算：A 类刷新不重播（E7） */
+  /* 恐怖预算：A 类刷新不重播（E7）
+     DEF-02：判据用 spentBefore（本会话【开始前】就花掉过）而非 hasSpent
+     （本会话内也算）。一个 A 类 beat 横跨多个节点共用一个 budget_id，
+     用 hasSpent 会让整段 beat 只播首句 —— A-2 的 SS-078 回访提示、
+     SN-082、SN-083{ECHO} 全部静默。E7 要的是刷新不重播，不是同会话截断。 */
   function horrorGate(n) {
     var e = firstEffect(n, 'horror');
     if (!e) return true;
-    if (e.class === 'A' && S().hasSpent('A', e.budget_id)) return false;
+    if (e.class === 'A' && S().spentBefore('A', e.budget_id)) return false;
     S().spendHorror(e.class, e.budget_id);
     return true;
   }

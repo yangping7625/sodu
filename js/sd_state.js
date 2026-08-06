@@ -43,6 +43,10 @@
 
       save_table_state: { revealed: [] },
 
+      /* 墙钟偏移（元字段，不属叙事层）：统一时间源 now() 的唯一输入。
+         详见本文件下方「统一时间源」段。 */
+      time_warp_ms: 0,
+
       timeline: {
         first_visit_at: now,
         last_leave_at: null,
@@ -60,6 +64,27 @@
 
   var mem = null;
   var persistent = true;
+
+  /* ── DEF-02：E7「A 类刷新不重播」的正确粒度 ────────────────────────
+     一个 A 类 beat 在数据里往往横跨多个节点、共用一个 budget_id
+     （A-2 = SN-074 / 076 / 077 / SS-078 / 080 / 082 / 083 共 7 个）。
+     若按「这个 budget_id 花过了就跳过」判定，同一会话内整段 beat 只会
+     播出第一句，其余全部静默 —— A-2 的核心载荷 SS-078（回访提示
+     「N 天前 · HH:MM」）、SN-082、SN-083{ECHO} 永远上不了屏。
+     E7 要的是【跨会话】不重播（refresh 后不再吓一次），不是同会话截断。
+     故另存一份【载入时快照】：只有上个会话就已花掉的 budget_id 才拦截。 */
+  var spentAtLoad = { A: [], B: [] };
+  function snapshotSpent() {
+    var h = (mem && mem.horror_spent) || {};
+    spentAtLoad = {
+      A: (h.A || []).slice(),
+      B: (h.B || []).slice()
+    };
+  }
+  /* true = 本会话开始【之前】就已花掉（= 刷新回访），应拦截重播 */
+  function spentBefore(cls, id) {
+    return (spentAtLoad[cls] || []).indexOf(id) >= 0;
+  }
 
   /* 会话态：刷新即清空。A 类 refresh_rule='session_only' 依赖它（E7） */
   var sess = { started_at: Date.now(), a1_played: false, nodes_seen: {} };
@@ -86,16 +111,51 @@
       if (!o.timeline) o.timeline = b.timeline;
       for (k in b.timeline) { if (!(k in o.timeline)) o.timeline[k] = b.timeline[k]; }
       mem = o;
-      mem.timeline.session_start_at = Date.now();
+      mem.timeline.session_start_at = now();
     }
+    snapshotSpent();                 // DEF-02：记下「本会话开始前」已花掉的 A 类席位
     /* L1-e 面包屑：让开 DevTools 的玩家看见「还有个 v0」。不读、不参与逻辑。 */
     if (rawGet(SHELL_KEY) === null) rawSet(SHELL_KEY, '{}');
     return mem;
   }
 
+  /* ── TQ-04：typing_events 落盘节流 ─────────────────────────────────
+     现状核查：input 监听器只改内存变量，**不是每键一写**；只有
+     「打了 ≥2 字又清空」这一语义事件才调 pushTyping。但该事件在
+     反复输入-删除时仍可能 ~1–2 次/秒连发，每次都要 JSON.stringify
+     整个存档（input_history 60 + typing_events 40 条）再 setItem，
+     移动端会顶出可感卡顿（P4）。
+     处置：事件【立即进内存】（pickA1Tier / A-1 兜底② 依赖同步可读），
+     **落盘**合并到 ≥2s 节流窗；任何其他路径的 commit() 都会顺带冲刷，
+     失焦/离开由 sd_behavior.onLeave → pushLeave → commit() 兜底。
+     只约束这一条高频路径，其余关键节点写入保持即时 —— 不过度设计。 */
+  var TYPING_FLUSH_MS = 2000;
+  var typingTimer = null;
+  var lastTypingWriteAt = 0;
+
+  function cancelTypingFlush() {
+    if (typingTimer == null) return;
+    try { g.clearTimeout(typingTimer); } catch (e) { /* 静默 */ }
+    typingTimer = null;
+  }
+  function scheduleTypingFlush(wait) {
+    if (typingTimer != null) return;                 // 已有挂起的冲刷，合并进去
+    try {
+      typingTimer = g.setTimeout(function () {
+        typingTimer = null;
+        lastTypingWriteAt = Date.now();
+        commit();
+      }, wait);
+    } catch (e) {                                    // 无定时器环境 → 退回即时落盘
+      lastTypingWriteAt = Date.now();
+      commit();
+    }
+  }
+
   /* 原子单键写入 */
   function commit() {
     if (!mem) return false;
+    cancelTypingFlush();          // 本次写入已覆盖挂起的打字事件，冲刷计划作废
     mem.updated_at = Date.now();
     var s;
     try { s = JSON.stringify(mem); } catch (e) { return false; }
@@ -103,6 +163,37 @@
   }
 
   function get() { return mem || load(); }
+
+  /* ── 统一时间源（墙钟偏移 / 元字段，不属叙事层） ───────────────────
+     所有「游戏时钟」相关的判断都走 now()，而非裸 Date.now()。
+        now() = Date.now() + time_warp_ms
+     time_warp_ms 是【相对偏移】（毫秒），存于 sudu_save_v1.time_warp_ms，
+     属于元层、不属叙事层。写入它只改变「时间怎么算」，绝不改动任何台词文本
+     （S4 时间倒流靠相对差，依然成立）。偏移钳制在 ±7 天：足够跨越 6h 冷却锁，
+     又不会把年份拨乱（X-2：本作绝不渲染 2011 这类绝对历史年份）。
+     行为遥测（停留 / 停顿 / A-1 实测）保持裸 Date.now()，不在此列。      */
+  var WARP_MAX_MS = 7 * 24 * 60 * 60 * 1000;   // ±7 天 = 604,800,000 ms
+  function clampWarp(ms) {
+    if (!isFinite(ms)) return 0;
+    if (ms >  WARP_MAX_MS) ms =  WARP_MAX_MS;
+    if (ms < -WARP_MAX_MS) ms = -WARP_MAX_MS;
+    return ms;
+  }
+  function getWarp() {
+    var d = get();
+    return clampWarp(d.time_warp_ms || 0);
+  }
+  function setWarp(ms) {
+    var d = get();
+    d.time_warp_ms = clampWarp(ms || 0);
+    commit();
+    return d.time_warp_ms;
+  }
+  /* 统一时间源：裸 Date.now() 叠加墙钟偏移。墙钟显示与冷却/时序逻辑共用它，
+     保证「显示」与「逻辑」一致。 */
+  function now() {
+    return Date.now() + getWarp();
+  }
 
   /* ── 名字（R4：仅存本机，永不上传） ──────────────────────────────── */
   function setName(raw, nick) {
@@ -183,7 +274,14 @@
       peek: String(peek == null ? '' : peek).slice(0, 5)   // 只存前 5 字，仅本机
     });
     if (d.typing_events.length > 40) d.typing_events.shift();
-    commit();
+    /* TQ-04：内存已更新（读接口立即可见）；落盘走 ≥2s 节流窗 */
+    var since = Date.now() - lastTypingWriteAt;
+    if (since >= TYPING_FLUSH_MS) {
+      lastTypingWriteAt = Date.now();
+      commit();
+    } else {
+      scheduleTypingFlush(TYPING_FLUSH_MS - since);
+    }
   }
   function typingEvents() { return get().typing_events.slice(); }
 
@@ -248,6 +346,7 @@
   function reset() {
     mem = blank();
     sess = { started_at: Date.now(), a1_played: false, nodes_seen: {} };
+    snapshotSpent();                 // 完全失忆 → 快照同步清空（E8）
     commit();
     return mem;
   }
@@ -255,6 +354,7 @@
   SD.State = {
     KEY: KEY, SHELL_KEY: SHELL_KEY, SCHEMA: SCHEMA,
     load: load, get: get, commit: commit, reset: reset,
+    now: now, getWarp: getWarp, setWarp: setWarp,
     setName: setName, name: name, nick: nick,
     cursor: cursor,
     markRead: markRead, isRead: isRead,
@@ -264,7 +364,7 @@
     pushTyping: pushTyping, typingEvents: typingEvents,
     dwell: dwell, dwellAll: dwellAll,
     pushLeave: pushLeave, lastLeave: lastLeave,
-    spendHorror: spendHorror, hasSpent: hasSpent,
+    spendHorror: spendHorror, hasSpent: hasSpent, spentBefore: spentBefore,
     reveal: reveal, isRevealed: isRevealed,
     norm: norm,
     sess: function () { return sess; },

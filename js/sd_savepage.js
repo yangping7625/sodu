@@ -53,7 +53,7 @@
     var h = document.querySelector('[data-sd-slot]');
     if (h) h.textContent = conf.title || '';
     var w = document.querySelector('[data-sd-written]');
-    if (w) w.textContent = 'WRITTEN AT ' + T().fmtStamp(Date.now());
+    if (w) w.textContent = 'WRITTEN AT ' + T().fmtStamp(S().now());
   }
 
   /* ── flag 表 ─────────────────────────────────────────────────────── */
@@ -103,7 +103,7 @@
       case '{avg_reply_s}s':
         return dw.avg_reply_ms ? (T().secs(dw.avg_reply_ms, 1) + 's') : null;
       case '{last_seen}':
-        return T().fmtStamp(d.timeline.last_leave_at || Date.now());
+        return T().fmtStamp(d.timeline.last_leave_at || S().now());
       default:
         return tpl;
     }

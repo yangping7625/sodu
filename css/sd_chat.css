@@ -156,3 +156,87 @@ body[data-temp="shifted"] .sd-dock {
 .sd-card__title { font-weight: 600; font-size: 15px; }
 .sd-card__excerpt { margin-top: 4px; color: var(--sd-dim); font-size: 14px; line-height: 1.5; }
 .sd-card__src { margin-top: 6px; color: var(--sd-faint); font-size: 12px; }
+
+/* ── 右下角常驻系统时钟（ARG-BUILD-05-rev） ───────────────────────────
+   像系统托盘时钟：fixed 右下角、极简、单色、低存在感；不抢对话焦点、
+   不挡输入框（位于交互区之上、靠右留白处）。z-index 高于内容但低于面板。 */
+.sd-clock {
+  position: fixed;
+  right: 10px;
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  margin: 0;
+  padding: 2px 5px;
+  border: none;
+  background: transparent;
+  color: var(--sd-dim);
+  font: 11px/1.4 var(--sd-mono, monospace);
+  letter-spacing: .02em;
+  cursor: pointer;
+  opacity: .72;
+  user-select: none;
+  transition: opacity .2s linear;
+}
+.sd-clock:hover,
+.sd-clock:focus-visible { opacity: 1; }
+
+/* 设置面板：克制、正常，无任何「调试」措辞 */
+.sd-clock-panel {
+  position: fixed;
+  right: 10px;
+  bottom: calc(112px + env(safe-area-inset-bottom, 0px));
+  z-index: 60;
+  width: 200px;
+  max-width: calc(100vw - 20px);
+  padding: 12px;
+  border: 1px solid var(--sd-line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--sd-fg);
+  font-size: 12px;
+  line-height: 1.5;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .10);
+}
+.sd-clock-panel__title {
+  font-size: 11px;
+  color: var(--sd-dim);
+  letter-spacing: .04em;
+  margin-bottom: 6px;
+}
+.sd-clock-panel__now {
+  font: 14px/1.4 var(--sd-mono, monospace);
+  color: var(--sd-fg);
+  margin-bottom: 2px;
+}
+.sd-clock-panel__off {
+  font-size: 11px;
+  color: var(--sd-dim);
+  margin-bottom: 10px;
+}
+.sd-clock-panel__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.sd-clock-panel__btn {
+  padding: 7px 0;
+  border: 1px solid var(--sd-line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--sd-fg);
+  font: 12px/1 var(--sd-mono, monospace);
+  cursor: pointer;
+}
+.sd-clock-panel__btn:active { background: #f1f1f4; }
+.sd-clock-panel__reset {
+  width: 100%;
+  padding: 8px 0;
+  border: none;
+  border-radius: 8px;
+  background: #2b2b30;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+.sd-clock-panel__reset:active { transform: scale(.98); }

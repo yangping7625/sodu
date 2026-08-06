@@ -23,6 +23,10 @@
 
     SD.Render.mount(stream, dock);
 
+    /* 右下角常驻系统时钟 + 点击设时间（ARG-BUILD-05-rev）。
+       无头环境无 setInterval 时静默降级，仅静态显示，不阻断。 */
+    if (SD.Clock && SD.Clock.mount) SD.Clock.mount();
+
     var n = SD.Dialogue.init();
 
     /* 节点图自检：问题只进控制台，永不打扰玩家 */
