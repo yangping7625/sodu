@@ -1,0 +1,70 @@
+# ==========================================================================
+#  deploy.yml · GitHub Pages 部署（gh-pages 分支方案）
+#
+#  • 部署前先跑 J-9 红线扫描（tests/spec.js）—— 任一红线触即阻断发布。
+#  • 只发布干净产物：html / css / js / data / favicon.svg / robots.txt。
+#    明确排除 README.md 与 tests/（开发者文档与测试不进玩家可访问的产物）。
+#  • 产物根放 .nojekyll，避免 GitHub 把下划线目录当 Jekyll 处理。
+#
+#  使用前提（由主理人完成后才真部署）：
+#    1) 在 GitHub 新建仓库，把本目录（gonglue-web/）作为独立仓库推送。
+#    2) 仓库 Settings → Pages → Source 选 "Deploy from a branch" → gh-pages。
+#    3) 本工作流在 push 到默认分支或手动 workflow_dispatch 时触发。
+# ==========================================================================
+name: deploy-pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # 允许 peaceiris 推送到 gh-pages 分支
+
+concurrency:
+  group: pages-deploy
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: J-9 red-line scan (deploy gate)
+        run: node tests/spec.js
+
+      # 无头烟雾测试：在【子路径部署模拟】下加载真实页面、执行真实脚本。
+      # 这两步会捕获 J-9 静态扫描看不见的运行期回归，例如：
+      #   · 资源 404（根绝对路径在 /<repo>/ 下裸奔）
+      #   · 主对话流断链 / token 未替换 / X-2 绝对日期回归
+      #   · 存档页 E6 直访降级失效、R8 谜题锁死
+      - name: Smoke 1 - main dialogue flow (subpath deploy sim)
+        run: node tests/smoke_main.js
+
+      - name: Smoke 2 - save page direct-visit fallback
+        run: node tests/smoke_save.js
+
+      - name: Assemble clean publish dir
+        run: |
+          set -euo pipefail
+          rm -rf publish
+          mkdir -p publish
+          cp index.html save.html 404.html robots.txt favicon.svg publish/
+          cp -r css data js publish/
+          touch publish/.nojekyll
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./publish
+          publish_branch: gh-pages
+          enable_jekyll: false
+          force_orphan: true

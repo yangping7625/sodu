@@ -1,0 +1,101 @@
+/* ==========================================================================
+   sd_save.css · 存档页（save 主题）
+   结构由 body[data-site="save"] 在 sd_base.css 提供（等宽 / 密 / 纸色）。
+   本页是【剧情道具】，显示"她记住的你"，不是进度面板（R2）。
+   ========================================================================== */
+
+.sd-slot {
+  padding: 18px 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  word-break: break-word;
+}
+.sd-written {
+  margin: 0 0 14px;
+  font-size: 11px;
+  color: var(--sd-dim);
+}
+
+/* flag 表：点线引导，像终端目录 */
+.sd-flags {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px dotted var(--sd-line);
+}
+.sd-flag {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px dotted var(--sd-line);
+  font-family: var(--sd-mono);
+  font-size: 13px;
+  line-height: 1.45;
+  word-break: break-all;
+}
+.sd-flag__k { color: var(--sd-fg); flex: 0 0 auto; }
+.sd-flag__dots {
+  flex: 1 1 auto;
+  min-width: 14px;
+  border-bottom: 1px dotted var(--sd-line);
+  transform: translateY(-3px);
+}
+.sd-flag__v { color: var(--sd-dim); text-align: right; flex: 0 0 auto; }
+
+.sd-flag--redacted,
+.sd-flag--redacted .sd-flag__k,
+.sd-flag--redacted .sd-flag__v { color: var(--sd-faint); }
+
+/* ── 谜题输入 + 三级提示阶梯 ───────────────────────────────────────── */
+.sd-puzzle {
+  margin: 10px 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--sd-line);
+  background: #fff;
+}
+.sd-puzzle__form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.sd-puzzle__label { font-size: 13px; color: var(--sd-dim); white-space: nowrap; }
+.sd-puzzle__input {
+  flex: 1 1 12em;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--sd-line);
+  background: #fff;
+  font-family: var(--sd-mono);
+  font-size: 14px;
+}
+.sd-puzzle__btn {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  border: none;
+  background: #2b2b30;
+  color: #fff;
+  cursor: pointer;
+}
+.sd-puzzle__say {
+  margin: 8px 0 0;
+  min-height: 1em;
+  font-size: 13px;
+  color: var(--sd-dim);
+}
+
+/* ── L1-b：透明文本（长按全选可见） ─────────────────────────────────── */
+.sd-hidden-host { display: block; }
+.sd-hidden {
+  display: block;
+  margin: 22px 0 4px;
+  font-size: 12px;
+  color: transparent;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.sd-hidden::selection { color: #23231f; background: #d8d8d0; }
+
+/* ── E6：不经对话直访的降级提示 ─────────────────────────────────────── */
+.sd-early {
+  margin: 18px 0 4px;
+  font-size: 13px;
+  color: var(--sd-dim);
+  word-break: break-word;
+}

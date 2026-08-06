@@ -1,0 +1,563 @@
+/* ==========================================================================
+   sd_dialogue.js · 对话节点机（J-2）
+
+   职责：cursor 推进 / requires 判定 / branch 切换 / delay+typing 队列 /
+        set_flags / token 插值 / A-1 揭示槽装配
+
+   架构承诺（本次骨架的核心验收标准）：
+     最终脚本灌入时，【只替换 data/sd_slice.js】，本文件不认识任何具体节点 ID，
+     只认识 kind / effects / tags。ARG-BUILD-03 灌入 83 节点定稿后，本文件的
+     改动仅限于「补齐 schema 能力」，没有一行是为某个节点 ID 写的。
+
+   节点 kind：
+     line        普通台词（her / sys）
+     branch_line 按 feed_cover.route_view 切文案
+     a1_reveal   ★ A-1 揭示槽：文本由实测行为数据装配，非硬编码
+     choice      玩家选项 / 自由输入（free_input.puzzle 时挂谜题阶梯）
+     feed        投喂卡三选一
+     link        站内跳转行（真换页）
+
+   节点字段：
+     render:false  text 是【舞台指示】不是台词 —— 只执行 effects，不出字。
+                   （若照直渲染，玩家会在屏上读到 CSS 变量名这类元层字符串）
+     tags:[...]    'puzzle_hint' = 由提示阶梯定时注入，不在静态图的可达链上。
+
+   effects 类型：
+     delay / typing        计时（skippable:false 时不可点击跳过）
+     title                 <title> 漂移
+     horror                恐怖预算记账（A 类刷新不重播）
+     redact                就地抹除已出的某一句
+     reveal_flag           翻转存档表的被抹黑行
+     theme_shift           界面色温位移
+     soft_countdown        页脚软提示（只显示不阻断）
+     tripwire_guard        同屏禁令运行期守卫
+   ========================================================================== */
+(function (g) {
+  'use strict';
+  var SD = (g.SD = g.SD || {});
+
+  var S = function () { return SD.State; };
+  var R = function () { return SD.Render; };
+  var B = function () { return SD.Behavior; };
+  var T = function () { return SD.Timeline; };
+  var I = function () { return SD.Idiolect; };
+
+  var index = {};        // id → node
+  var order = [];        // 顺序表
+  var running = false;
+  var skipRequested = false;
+  var current = null;
+  var ladder = null;     // 谜题提示阶梯（free_input.puzzle 期间存活）
+
+  /* ── 初始化 ──────────────────────────────────────────────────────── */
+  function init() {
+    var nodes = (g.SD_DATA && g.SD_DATA.dialogue_nodes) || [];
+    index = {}; order = [];
+    nodes.forEach(function (n) { index[n.id] = n; order.push(n.id); });
+    return order.length;
+  }
+
+  function node(id) { return index[id] || null; }
+  function firstId() { return order[0] || null; }
+
+  /* ── token 插值 ──────────────────────────────────────────────────── */
+  function tokens() {
+    var d = S().get();
+    var bt = B().tokens();
+    var nm = d.name_given;
+    var out = {
+      '{NAME}': nm == null ? '你' : nm,
+      '{NICK}': d.nick == null ? '你' : d.nick,
+      '{cover_n}': String(S().coverN()),
+      '{route_view}': String(S().routeView() || '—'),
+      '{ECHO}': I().echo(
+        S().inputs().map(function (r) { return r.raw; }),
+        nm
+      ),
+      '{UNFED_TITLE}': unfedTitle(),
+      /* A-2 时间倒错：相对生成的时间戳（X-2 —— 这里永远不会是 2011，
+         绝对历史日期属论坛地层，不由本页产出）。 */
+      '{pre_visit_ts}': T().fmtStamp(T().preVisitTs() || Date.now()),
+      /* L4-c 软倒计时：只在 soft_countdown 触发后才有值 */
+      '{now+6h}': nextAvailableClock()
+    };
+    for (var k in bt) out[k] = bt[k];
+    return out;
+  }
+
+  function nextAvailableClock() {
+    var st = null;
+    try { st = T().nextAvailableState(); } catch (e) {}
+    return (st && st.text) ? st.text : '—';
+  }
+
+  function unfedTitle() {
+    var cat = ((g.SD_DATA && g.SD_DATA.feed_cover) || {}).catalog || [];
+    var unfed = S().get().feed_cover.unfed || [];
+    for (var i = 0; i < cat.length; i++) {
+      if (unfed.indexOf(cat[i].id) >= 0) return cat[i].title;
+    }
+    return cat.length ? cat[0].title : '';
+  }
+
+  var TOKEN_RE =
+    /\{NAME\}|\{NICK\}|\{gap\}|\{mm:ss\}|\{avg\}|\{med\}|\{ECHO\}|\{cover_n\}|\{route_view\}|\{UNFED_TITLE\}|\{pre_visit_ts\}|\{now\+6h\}/g;
+
+  function interp(text) {
+    if (text == null) return '';
+    var tk = tokens();
+    return String(text).replace(TOKEN_RE, function (m) {
+      return tk[m] !== undefined ? tk[m] : m;
+    });
+  }
+
+  /* ── requires 判定 ───────────────────────────────────────────────── */
+  function meets(n) {
+    var req = n.requires;
+    if (!req) return true;
+    var i;
+    if (req.flags) {
+      for (i = 0; i < req.flags.length; i++) { if (!S().hasFlag(req.flags[i])) return false; }
+    }
+    if (req.not_flags) {
+      for (i = 0; i < req.not_flags.length; i++) { if (S().hasFlag(req.not_flags[i])) return false; }
+    }
+    if (req.feed && S().routeView() !== req.feed) return false;
+    return true;
+  }
+
+  function applyFlags(list) {
+    (list || []).forEach(function (f) { S().flag(f, true); });
+  }
+
+  /* ── effects ─────────────────────────────────────────────────────── */
+  function effectsOf(n, type) {
+    return (n.effects || []).filter(function (e) { return e.type === type; });
+  }
+  function firstEffect(n, type) {
+    var a = effectsOf(n, type);
+    return a.length ? a[0] : null;
+  }
+
+  function applyTitle(n) {
+    var e = firstEffect(n, 'title');
+    if (!e) return;
+    var titles = (g.SD_DATA && g.SD_DATA.titles) || {};
+    var t = titles[e.key];
+    if (t) R().setTitle(interp(t));
+  }
+
+  /* 恐怖预算：A 类刷新不重播（E7） */
+  function horrorGate(n) {
+    var e = firstEffect(n, 'horror');
+    if (!e) return true;
+    if (e.class === 'A' && S().hasSpent('A', e.budget_id)) return false;
+    S().spendHorror(e.class, e.budget_id);
+    return true;
+  }
+
+  /* ── 舞台效果 ────────────────────────────────────────────────────────
+     出字【前】：tripwire_guard（同屏禁令必须先于出字判定）
+     出字【时】：redact（就地替换，替换成功则本节点不再另起一条）
+     出字【后】：reveal_flag / theme_shift / soft_countdown / title      */
+
+  function guardBefore(n) {
+    var e = firstEffect(n, 'tripwire_guard');
+    if (!e) return;
+    var raw = e.forbid_on_screen || [];
+    var resolved = raw.map(function (s) {
+      /* ref 形态的禁词永不在运行期还原（还原 = 把谜底带进内存又带上屏）。
+         它是给 tests/spec.js 的静态扫描用的登记项，此处直接跳过。 */
+      return (typeof s === 'string') ? interp(s) : '';
+    });
+    R().tripwireGuard(raw.filter(function (s, i) { return !!resolved[i]; }),
+                      resolved.filter(function (v) { return !!v; }));
+  }
+
+  /* 返回 true 表示已就地抹除 —— 本节点不必再往流末尾追加一条 */
+  function applyRedact(n) {
+    var e = firstEffect(n, 'redact');
+    if (!e || !e.target) return false;
+    return R().redact(
+      e.target,
+      typeof e.line_index === 'number' ? e.line_index : null,
+      e.comment,
+      n.id
+    );
+  }
+
+  function applyStage(n) {
+    (n.effects || []).forEach(function (e) {
+      switch (e.type) {
+        case 'reveal_flag':
+          if (e.key) { S().reveal(e.key); S().flag('revealed_' + e.key, true); }
+          break;
+        case 'theme_shift':
+          R().themeShift(e);
+          break;
+        case 'soft_countdown':
+          armSoftCountdown(n);
+          break;
+        default: break;
+      }
+    });
+    applyTitle(n);
+  }
+
+  /* render:false 节点的 text 形如「<舞台指示>：<载荷>」，载荷才是玩家看见的。
+     解析失败时退回整串 —— 宁可多几个字，也不要页脚空着。 */
+  function stagePayload(raw) {
+    var s = String(raw == null ? '' : raw);
+    var i = s.indexOf('：');
+    return i >= 0 ? s.slice(i + 1) : s;
+  }
+
+  function armSoftCountdown(n) {
+    try { T().armNextAvailable(); } catch (e) {}
+    var txt = interp(stagePayload(n.text));
+    if (txt) R().softCountdown(txt);
+  }
+
+  /* ── 等待（可跳过；no_skip 的强制等待不可跳过） ─────────────────── */
+  function wait(ms, noSkip, done) {
+    if (!ms || ms <= 0) return done();
+    var fired = false;
+    var timer = setTimeout(function () { finish(); }, ms);
+
+    function finish() {
+      if (fired) return;
+      fired = true;
+      clearTimeout(timer);
+      document.removeEventListener('click', onClick, true);
+      done();
+    }
+    function onClick() { if (!noSkip) finish(); }
+
+    if (!noSkip) document.addEventListener('click', onClick, true);
+  }
+
+  /* ── 主推进 ──────────────────────────────────────────────────────── */
+  function start(fromId) {
+    if (!order.length) init();
+    var id = fromId || S().cursor() || firstId();
+    if (!index[id]) id = firstId();
+    go(id);
+  }
+
+  function go(id) {
+    if (!id) { current = null; running = false; return onEnd(); }
+    var n = node(id);
+    if (!n) { running = false; return onEnd(); }
+
+    /* requires 不满足 → 顺延到 next，不卡死 */
+    if (!meets(n)) return go(n.next);
+
+    current = n;
+    S().cursor(id);
+    running = true;
+
+    switch (n.kind) {
+      case 'line':        return playLine(n, n.text);
+      case 'branch_line': return playLine(n, branchText(n));
+      case 'a1_reveal':   return playA1(n);
+      case 'choice':      return playChoice(n);
+      case 'feed':        return playFeed(n);
+      case 'link':        return playLink(n);
+      default:            return go(n.next);
+    }
+  }
+
+  function branchText(n) {
+    var rv = S().routeView();
+    var cases = n.cases || {};
+    return (rv && cases[rv]) || n.default || '';
+  }
+
+  /* 普通台词：delay → typing → 出字 */
+  function playLine(n, rawText) {
+    var dEff = firstEffect(n, 'delay');
+    var tEff = firstEffect(n, 'typing');
+    var delayMs = dEff ? dEff.ms : 0;
+    var typeMs  = tEff ? tEff.ms : 0;
+    /* skippable:false 是全片唯一的强制等待（SN-081）；no_skip 为旧写法，兼容 */
+    var noSkip  = isNoSkip(dEff) || isNoSkip(tEff);
+    var visible = n.render !== false;
+
+    if (!horrorGate(n)) return go(n.next);
+
+    wait(delayMs, noSkip, function () {
+      if (visible && typeMs && n.speaker === 'her') R().typingOn();
+      wait(typeMs, noSkip, function () {
+        R().typingOff();
+        if (visible) {
+          guardBefore(n);
+          /* redact 成功 = 已经在原位换成灰条，不再往流末尾追加 */
+          if (!applyRedact(n)) {
+            var text = interp(rawText);
+            if (n.speaker === 'sys') R().sysLine(text, n.id);
+            else R().bubble(n.speaker || 'her', text, n.id);
+          }
+        } else {
+          applyRedact(n);
+        }
+        S().markRead('node:' + n.id);
+        applyFlags(n.set_flags);
+        applyStage(n);
+        go(n.next);
+      });
+    });
+  }
+
+  function isNoSkip(e) {
+    if (!e) return false;
+    return e.skippable === false || !!e.no_skip;
+  }
+
+  /* ★ A-1 揭示：文本来自实测行为数据，逐句吐出。
+     text 恒为 null —— 一旦这里出现硬编码文案，P2 当场死亡。
+     每句气泡带 data-node="<id>.<序号>"，供 effects:redact 精确定位。 */
+  function playA1(n) {
+    if (!horrorGate(n)) return go(n.next);
+
+    var pack = B().a1Lines();
+    var lines = pack.lines || [];
+    S().flag('a1_tier_' + pack.tier, true);
+    S().sess().a1_played = true;
+    guardBefore(n);
+
+    var i = 0;
+    (function step() {
+      if (i >= lines.length) {
+        S().markRead('node:' + n.id);
+        applyFlags(n.set_flags);
+        applyStage(n);
+        return go(n.next);
+      }
+      var text = lines[i++];
+      R().typingOn();
+      wait(900, false, function () {
+        R().typingOff();
+        R().bubble('her', text, n.id + '.' + i);
+        /* N-039 位：不追加解释，留足静默 */
+        wait(i === lines.length ? 2000 : 700, false, step);
+      });
+    })();
+  }
+
+  /* 玩家选项 / 自由输入：此处开探针，玩家应答即为真实间隔 */
+  function playChoice(n) {
+    B().openProbe(n.id);
+
+    var opts = n.options || [];
+    var fi = n.free_input;
+
+    if (n.prompt && !opts.length) R().sysLine(interp(n.prompt), n.id);
+
+    if (opts.length) {
+      R().choices(opts.map(function (o) {
+        return { label: interp(o.label), _raw: o };
+      }), function (picked) {
+        B().closeProbe(n.id);
+        var o = picked._raw;
+        R().playerEcho(picked.label);
+        applyFlags(o.set_flags);
+        go(o.next || n.next);
+      });
+      if (fi && fi.enabled) attachInlineInput(n, fi);
+    } else if (fi && fi.enabled) {
+      openFreeInput(n, fi);
+      if (fi.puzzle) startLadder(n, fi);
+    } else {
+      go(n.next);
+    }
+  }
+
+  /* ── 谜题提示阶梯（R8：主线绝不锁死）────────────────────────────────
+     阶梯配置来自 save_table 里那一行被抹黑的 unlock（单一真源，
+     存档页与主对话页共用同一份 hint_ladder_ms / hints）。
+     提示文本优先取【标了 puzzle_hint 的节点】—— 那些节点不在静态可达链上，
+     它们的入口就是这里；tests/spec.js 的孤儿白名单与此对应。            */
+  function puzzleRow() {
+    var rows = ((g.SD_DATA && g.SD_DATA.save_table) || {}).rows || [];
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].redacted && rows[i].unlock) return rows[i];
+    }
+    return null;
+  }
+
+  function hintNodes() {
+    var out = [];
+    order.forEach(function (id) {
+      var n = index[id];
+      if (n && (n.tags || []).indexOf('puzzle_hint') >= 0) out.push(n);
+    });
+    return out;
+  }
+
+  function stopLadder() {
+    if (ladder) { try { ladder.stop(); } catch (e) {} ladder = null; }
+  }
+
+  function startLadder(n, fi) {
+    var row = puzzleRow();
+    if (!row || !SD.Puzzle) return;
+    var hints = hintNodes();
+    stopLadder();
+
+    ladder = new SD.Puzzle.HintLadder(row.unlock, {
+      onHint: function (text, i) {
+        var hn = hints[i];
+        if (hn) S().markRead('node:' + hn.id);
+        R().bubble('her', interp(hn ? hn.text : text), hn ? hn.id : null);
+      },
+      onAutoReveal: function () {
+        stopLadder();
+        S().flag('used_hint', true);
+        S().reveal(row.reveal_key);
+        R().clearDock();
+        var last = hints.length ? hints[hints.length - 1] : null;
+        go((last && last.next) || fi.next || n.next);
+      }
+    });
+    ladder.start();
+  }
+
+  /* 谜题作答：对 = 推进；错 = 冷回后原地重来（不惩罚、不推进 —— R8） */
+  function submitPuzzle(n, fi, raw) {
+    var row = puzzleRow();
+    S().pushInput(n.id, raw, fi.capture || 'acrostic_answer');
+    if (raw.trim()) R().playerEcho(raw.trim());
+    if (!row || !SD.Puzzle) { stopLadder(); return go(fi.next || n.next); }
+
+    var u = row.unlock || {};
+    SD.Puzzle.check(raw, u.answer_sha256, function (hit) {
+      if (hit) {
+        stopLadder();
+        S().flag('solved_acrostic', true);
+        S().reveal(row.reveal_key);
+        applyFlags(n.set_flags);
+        return go(fi.next || n.next);
+      }
+      /* E10：字符集合相同但顺序不同 → 确认方向对，但不给答案 */
+      SD.Puzzle.sameCharSet(raw, u.answer_sorted_sha256, function (sameSet) {
+        R().bubble('her', sameSet
+          ? (u.wrong_order_reply || '顺序反了。')
+          : (u.wrong_reply || '不是这个。'));
+        B().openProbe(n.id);
+        openFreeInput(n, fi);
+      });
+    });
+  }
+
+  function openFreeInput(n, fi) {
+    var inp = R().freeInput(
+      { max_len: fi.max_len, placeholder: fi.placeholder || '' },
+      function (val) { submitFree(n, fi, val); }
+    );
+    B().watchInput(inp, n.id);
+    try { inp.focus({ preventScroll: true }); } catch (e) {}
+  }
+
+  /* 选项 + 自由输入并存时，输入框挂在选项下方（append:true —— 不清空选项区）。
+     此处【不】autofocus：移动端弹起键盘会把刚渲染的引导选项顶出可视区，
+     等于又一次吞掉选项。要打字的玩家自己点输入框即可。 */
+  function attachInlineInput(n, fi) {
+    var inp = R().freeInput(
+      { max_len: fi.max_len, placeholder: fi.placeholder || '', append: true },
+      function (val) { submitFree(n, fi, val); }
+    );
+    B().watchInput(inp, n.id);
+  }
+
+  function submitFree(n, fi, val) {
+    B().closeProbe(n.id);
+    var raw = String(val == null ? '' : val);
+
+    if (fi.puzzle) return submitPuzzle(n, fi, raw);
+
+    if (fi.capture === 'name_given') {
+      var cleaned = I().clean(raw);
+      var nick = I().nickname(raw);
+      S().setName(cleaned || null, nick);
+      S().pushInput(n.id, raw, 'name_given');
+      if (cleaned) R().playerEcho(cleaned);
+      /* E2：不输入名字 / 全空格 → 她说「……那我先不叫。」，不卡死 */
+      if (!cleaned) {
+        R().bubble('her', '……那我先不叫。');
+        S().flag('no_name_given', true);
+      }
+    } else {
+      S().pushInput(n.id, raw, fi.capture || 'free');
+      if (raw.trim()) R().playerEcho(raw.trim());
+    }
+    applyFlags(n.set_flags);
+    go(fi.next || n.next);
+  }
+
+  /* 投喂卡三选一 */
+  function playFeed(n) {
+    B().openProbe(n.id);
+    var fc = (g.SD_DATA && g.SD_DATA.feed_cover) || {};
+    if (n.prompt) R().sysLine(interp(n.prompt), n.id);
+    R().feedCards(fc.catalog || [], fc.show_source_date, function (card) {
+      B().closeProbe(n.id);
+      S().feed(card.id);
+      R().playerEcho('《' + card.title + '》');
+      applyFlags(n.set_flags);
+      go(n.next);
+    });
+  }
+
+  function playLink(n) {
+    var dEff = firstEffect(n, 'delay');
+    wait(dEff ? dEff.ms : 0, false, function () {
+      R().linkLine(interp(n.text), n.href, n.id);
+      applyFlags(n.set_flags);
+      S().flag('save_offered', true);
+      go(n.next);
+    });
+  }
+
+  function onEnd() {
+    /* 切片收尾：软倒计时（只显示不阻断 —— R8 / R10） */
+    try { T().armNextAvailable(); } catch (e) {}
+    if (typeof SD.onDialogueEnd === 'function') SD.onDialogueEnd();
+  }
+
+  /* ── 自检：节点图可达性（J-9 运行期轻量版） ─────────────────────── */
+  function audit() {
+    if (!order.length) init();
+    var problems = [];
+    order.forEach(function (id) {
+      var n = index[id];
+      if (n.next && !index[n.next]) problems.push(id + '.next → ' + n.next + ' 不存在');
+      (n.options || []).forEach(function (o, i) {
+        if (o.next && !index[o.next]) problems.push(id + '.options[' + i + '] → ' + o.next + ' 不存在');
+      });
+      if (n.free_input && n.free_input.next && !index[n.free_input.next]) {
+        problems.push(id + '.free_input → ' + n.free_input.next + ' 不存在');
+      }
+    });
+    /* 孤儿检测 */
+    var reachable = {}, stack = [firstId()];
+    while (stack.length) {
+      var id = stack.pop();
+      if (!id || reachable[id] || !index[id]) continue;
+      reachable[id] = true;
+      var n = index[id];
+      if (n.next) stack.push(n.next);
+      (n.options || []).forEach(function (o) { if (o.next) stack.push(o.next); });
+      if (n.free_input && n.free_input.next) stack.push(n.free_input.next);
+    }
+    order.forEach(function (id) { if (!reachable[id]) problems.push('孤儿节点：' + id); });
+    return problems;
+  }
+
+  SD.Dialogue = {
+    init: init, start: start, go: go, node: node, audit: audit,
+    interp: interp, tokens: tokens,
+    current: function () { return current; },
+    running: function () { return running; }
+  };
+
+})(typeof window !== 'undefined' ? window : globalThis);

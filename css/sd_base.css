@@ -1,0 +1,136 @@
+/* ==========================================================================
+   sd_base.css · 全站底座
+
+   继承的纪律（来自参考实现的站群模式）：
+     「只切颜色 = 换皮」——所以把【栏数 / 行高 / 密度 / 字体族 / 分隔线】
+     写进 <body data-site> 的变量，而不是写进 class。
+     两个主题必须在结构上分化，不许只换颜色。
+
+   移动优先（P4 硬要求）：
+     零横向滚动 · assistant 正文 ≥16px · 输入框始终可见 · flag 表不溢出
+   ========================================================================== */
+
+/* ── 主题变量：结构 + 皮肤 ──────────────────────────────────────────── */
+:root {
+  --sd-bg: #ffffff;
+  --sd-fg: #1a1a1c;
+  --sd-dim: #8a8a90;
+  --sd-faint: #c9c9ce;
+  --sd-line: #ececef;
+
+  --sd-font: system-ui, -apple-system, "Segoe UI", "Noto Sans SC",
+             "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --sd-mono: ui-monospace, SFMono-Regular, Menlo, Consolas,
+             "Noto Sans Mono", "DejaVu Sans Mono", monospace;
+
+  --sd-size: 16px;
+  --sd-lh: 1.7;
+  --sd-col: 560px;
+  --sd-gap: 14px;
+  --sd-pad: 20px;
+  --sd-radius: 2px;
+}
+
+/* assistant · 2026 极简当代：极疏、单列、无分隔线 */
+body[data-site="assistant"] {
+  --sd-bg: #ffffff;
+  --sd-font-active: var(--sd-font);
+  --sd-size: 16px;
+  --sd-lh: 1.7;
+  --sd-col: 560px;
+  --sd-gap: 14px;
+}
+
+/* S-065 色温位移：极轻微，说不清哪变了 */
+body[data-site="assistant"][data-temp="shifted"] {
+  --sd-bg: #fbfbfd;
+}
+
+/* save · 等宽存档终端：密、点线连接、纸色 */
+body[data-site="save"] {
+  --sd-bg: #f7f6f2;
+  --sd-fg: #23231f;
+  --sd-dim: #7d7d75;
+  --sd-line: #ddddd4;
+  --sd-font-active: var(--sd-mono);
+  --sd-size: 14px;
+  --sd-lh: 1.35;
+  --sd-col: 520px;
+  --sd-gap: 6px;
+  --sd-radius: 0;
+}
+
+/* ── reset ──────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--sd-bg);
+  color: var(--sd-fg);
+  font-family: var(--sd-font-active, var(--sd-font));
+  font-size: var(--sd-size);
+  line-height: var(--sd-lh);
+  /* P4：零横向滚动 */
+  overflow-x: hidden;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  transition: background-color 1.2s linear;
+}
+
+a { color: inherit; }
+
+button, input {
+  font: inherit;
+  color: inherit;
+}
+
+/* ── 布局壳 ─────────────────────────────────────────────────────────── */
+.sd-wrap {
+  width: 100%;
+  max-width: var(--sd-col);
+  margin: 0 auto;
+  padding: 0 var(--sd-pad);
+}
+
+.sd-head {
+  padding: 18px 0 10px;
+  font-size: 12px;
+  color: var(--sd-dim);
+  letter-spacing: .02em;
+}
+
+/* ── A2：页脚虚构声明（8px 灰字，可发现但不破坏沉浸） ──────────────── */
+.sd-foot {
+  margin-top: 40px;
+  padding: 16px 0 calc(18px + env(safe-area-inset-bottom, 0px));
+}
+
+.sd-notice {
+  margin: 0;
+  font-size: 8px;
+  line-height: 1.6;
+  color: var(--sd-faint);
+  letter-spacing: .02em;
+}
+
+/* 软倒计时（只显示，不阻断 —— R8 / R10） */
+.sd-soft {
+  margin: 0 0 6px;
+  font-size: 10px;
+  color: var(--sd-faint);
+}
+
+/* ── 可访问性 ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+:focus-visible {
+  outline: 1px solid var(--sd-dim);
+  outline-offset: 2px;
+}

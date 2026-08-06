@@ -1,0 +1,158 @@
+/* ==========================================================================
+   sd_chat.css · 主对话页（assistant 主题）
+   结构由 body[data-site="assistant"] 在 sd_base.css 提供；本文件只管对话件。
+   移动优先：输入框常驻可见（P4），零横向滚动。
+   ========================================================================== */
+
+/* ── 消息流 ─────────────────────────────────────────────────────────── */
+.sd-stream {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sd-gap);
+  padding: 6px 0 10px;
+  min-height: 38vh;
+}
+
+.sd-row { display: flex; }
+.sd-row--her    { justify-content: flex-start; }
+.sd-row--player { justify-content: flex-end; }
+
+.sd-bubble {
+  max-width: 78%;
+  padding: 9px 13px;
+  border-radius: 16px;
+  background: #f1f1f4;
+  color: var(--sd-fg);
+  font-size: 16px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.sd-bubble--her    { border-bottom-left-radius: 5px; }
+.sd-bubble--player {
+  background: #2b2b30;
+  color: #fff;
+  border-bottom-right-radius: 5px;
+}
+
+/* 系统行（居中、小、灰） */
+.sd-sys {
+  text-align: center;
+  font-size: 13px;
+  color: var(--sd-dim);
+  margin: 2px 0;
+}
+.sd-link {
+  color: var(--sd-dim);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* 被删除的消息（B-10 形态）：灰条 */
+.sd-deleted {
+  align-self: flex-start;
+  max-width: 78%;
+  padding: 9px 13px;
+  border-radius: 16px;
+  background: #ececef;
+  color: #b4b4ba;
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* 同屏禁令留白（TW-1 / TW-3 运行期守卫命中时插入）。
+   目的只有一个：把上一处推出可视区。它不该被看见，也不该被感知为"内容"。 */
+.sd-spacer {
+  height: 62vh;
+  min-height: 240px;
+  pointer-events: none;
+}
+
+/* typing 指示：三点 */
+.sd-typing { display: inline-flex; gap: 4px; align-items: center; }
+.sd-typing i {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--sd-dim);
+  display: inline-block;
+  animation: sd-blink 1.2s infinite ease-in-out;
+}
+.sd-typing i:nth-child(2) { animation-delay: .2s; }
+.sd-typing i:nth-child(3) { animation-delay: .4s; }
+@keyframes sd-blink {
+  0%, 60%, 100% { opacity: .25; }
+  30%           { opacity: 1; }
+}
+
+/* ── 交互区（常驻底部） ─────────────────────────────────────────────── */
+.sd-dock {
+  position: sticky;
+  bottom: 0;
+  padding: 8px 0 calc(10px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(to top, var(--sd-bg) 72%, rgba(255,255,255,0));
+}
+body[data-temp="shifted"] .sd-dock {
+  background: linear-gradient(to top, var(--sd-bg) 72%, rgba(251,251,253,0));
+}
+
+/* 自由输入条 */
+.sd-inputbar { display: flex; gap: 8px; align-items: center; }
+.sd-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 11px 15px;
+  border: 1px solid var(--sd-line);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 16px;
+  line-height: 1.4;
+}
+.sd-input::placeholder { color: var(--sd-faint); }
+.sd-send {
+  flex: 0 0 auto;
+  width: 44px; height: 44px;
+  border: none;
+  border-radius: 999px;
+  background: #2b2b30;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+}
+.sd-send:active { transform: scale(.96); }
+
+/* 选项 */
+.sd-choices { display: flex; flex-direction: column; gap: 8px; }
+.sd-choice {
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--sd-line);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 16px;
+  cursor: pointer;
+}
+.sd-choice:active { background: #f1f1f4; }
+
+/* 选项 + 自由输入并存（引导选项在上，自由输入在下）：
+   一条发丝级分隔线 + 呼吸间距，够把两种交互分开，不加任何屏显文字。 */
+.sd-dock__sep {
+  height: 1px;
+  margin: 14px 2px 12px;
+  background: var(--sd-line);
+}
+.sd-inputbar--with-choices { margin-top: 0; }
+
+/* 投喂卡（S6） */
+.sd-cards { display: flex; flex-direction: column; gap: 8px; }
+.sd-card {
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--sd-line);
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+}
+.sd-card:active { background: #f1f1f4; }
+.sd-card__title { font-weight: 600; font-size: 15px; }
+.sd-card__excerpt { margin-top: 4px; color: var(--sd-dim); font-size: 14px; line-height: 1.5; }
+.sd-card__src { margin-top: 6px; color: var(--sd-faint); font-size: 12px; }
