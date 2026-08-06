@@ -253,18 +253,31 @@ function scanAbsolutePaths(files) {
 function checkBudgetAndGraph(SD_DATA) {
   const nodes = SD_DATA.dialogue_nodes || [];
   const hb = SD_DATA.horror_budget || {};
+  const hbG1 = SD_DATA.horror_budget_g1 || {};
   const A_MAX = hb.A_max != null ? hb.A_max : 2;
   const B_MAX = hb.B_max != null ? hb.B_max : 14;
+  const A_MAX_G1 = hbG1.A_max != null ? hbG1.A_max : 0;
+  const B_MAX_G1 = hbG1.B_max != null ? hbG1.B_max : 3;
+
+  /* 台账分区（ARG-BUILD-07）：切片段（SN-/SC-/SS-）记入 horror_budget；
+     G-1 段（SD-）记入同级 horror_budget_g1（P-2 划拨 3 席 B-K1/K2/K3，
+     HB-5：切片 A2/B14 十六席零触碰）。分区保证「切片 2/2 · 14/14 零余量」
+     红线不被 G-1 的 3 个划拨席位稀释，也保证 G-1 台账 0/0 · 3/3 满额。 */
+  const isG1 = function (n) {
+    return /^SD-/.test(n.id || '') || /^G1-/.test(n.block || '');
+  };
 
   /* 按【唯一 budget_id】计数（非 effect 出现次数）：
-     同一 budget_id 在多节点复用只占一席（如 B-5 在 4 节点复用 = 1 席）。
-     B-12 属独立页面资产（Phase 2 /v1/save 旧版表），不在节点内登记，单独累加。 */
+     同一 budget_id 在多节点复用只占一席（如 B-5 在 4 节点复用 = 1 席，
+     G-1 的 B-K2 在 4 节点复用同样只占一席）。 */
   const idSet = { A: new Set(), B: new Set() };
+  const idSetG1 = { A: new Set(), B: new Set() };
   const index = {};
   nodes.forEach(function (n) {
     index[n.id] = n;
+    const ledger = isG1(n) ? idSetG1 : idSet;
     (n.effects || []).forEach(function (e) {
-      if (e.type === 'horror' && e.budget_id) idSet[e.class].add(e.budget_id);
+      if (e.type === 'horror' && e.budget_id) ledger[e.class].add(e.budget_id);
     });
   });
   (hb.B_offdialogue || []).forEach(function (id) { idSet.B.add(id); });
@@ -273,19 +286,38 @@ function checkBudgetAndGraph(SD_DATA) {
   const bCount = idSet.B.size;
   const declA = (hb.A_declared || []).length;
   const declB = (hb.B_declared || []).length;
+  const aG1 = idSetG1.A.size;
+  const bG1 = idSetG1.B.size;
+  const declAG1 = (hbG1.A_declared || []).length;
+  const declBG1 = (hbG1.B_declared || []).length;
 
-  if (aCount > A_MAX) fail(`恐怖预算超支：A 类 ${aCount} > 上限 ${A_MAX}`);
-  if (bCount > B_MAX) fail(`恐怖预算超支：B 类 ${bCount} > 上限 ${B_MAX}`);
-  /* 零余量纪律：满额登记，实测必须等于上限（也等于台账声明数） */
-  if (aCount !== A_MAX) fail(`恐怖预算未满额：A 类实测 ${aCount} ≠ 上限 ${A_MAX}（零余量要求）`);
-  if (bCount !== B_MAX) fail(`恐怖预算未满额：B 类实测 ${bCount} ≠ 上限 ${B_MAX}（零余量要求）`);
-  if (declA && aCount !== declA) fail(`恐怖预算台账不一致：A 实 ${aCount} ≠ 声明 ${declA}`);
-  if (declB && bCount !== declB) fail(`恐怖预算台账不一致：B 实 ${bCount} ≠ 声明 ${declB}`);
-  note(`恐怖预算：A ${aCount}/${A_MAX}（声明${declA}）· B ${bCount}/${B_MAX}（声明${declB}）`);
+  /* ── 切片段台账（既有红线，零余量） ── */
+  if (aCount > A_MAX) fail(`恐怖预算超支：切片段 A 类 ${aCount} > 上限 ${A_MAX}`);
+  if (bCount > B_MAX) fail(`恐怖预算超支：切片段 B 类 ${bCount} > 上限 ${B_MAX}`);
+  if (aCount !== A_MAX) fail(`恐怖预算未满额：切片段 A 类实测 ${aCount} ≠ 上限 ${A_MAX}（零余量要求）`);
+  if (bCount !== B_MAX) fail(`恐怖预算未满额：切片段 B 类实测 ${bCount} ≠ 上限 ${B_MAX}（零余量要求）`);
+  if (declA && aCount !== declA) fail(`恐怖预算台账不一致：切片段 A 实 ${aCount} ≠ 声明 ${declA}`);
+  if (declB && bCount !== declB) fail(`恐怖预算台账不一致：切片段 B 实 ${bCount} ≠ 声明 ${declB}`);
+  note(`恐怖预算（切片段）：A ${aCount}/${A_MAX}（声明${declA}）· B ${bCount}/${B_MAX}（声明${declB}）`);
+
+  /* ── G-1 段台账（P-2 划拨，独立满额） ── */
+  if (aG1 > A_MAX_G1) fail(`恐怖预算超支：G-1 段 A 类 ${aG1} > 上限 ${A_MAX_G1}`);
+  if (bG1 > B_MAX_G1) fail(`恐怖预算超支：G-1 段 B 类 ${bG1} > 上限 ${B_MAX_G1}`);
+  if (aG1 !== A_MAX_G1) fail(`恐怖预算未满额：G-1 段 A 类实测 ${aG1} ≠ 上限 ${A_MAX_G1}（零余量要求）`);
+  if (bG1 !== B_MAX_G1) fail(`恐怖预算未满额：G-1 段 B 类实测 ${bG1} ≠ 上限 ${B_MAX_G1}（零余量要求）`);
+  if (declAG1 && aG1 !== declAG1) fail(`恐怖预算台账不一致：G-1 段 A 实 ${aG1} ≠ 声明 ${declAG1}`);
+  if (declBG1 && bG1 !== declBG1) fail(`恐怖预算台账不一致：G-1 段 B 实 ${bG1} ≠ 声明 ${declBG1}`);
+  note(`恐怖预算（G-1 段 P-2 划拨）：A ${aG1}/${A_MAX_G1} · B ${bG1}/${B_MAX_G1}（声明${declBG1}）`);
 
   /* 节点图可达性 */
   const reach = new Set();
   const stack = [nodes.length ? nodes[0].id : null];
+  /* G-1 续弧种子（D-G1-02）：切片收尾后由 sd_dialogue.onEnd() 的通用
+     「续弧接续」跳转到 tags 含 'arc_entry' 的节点 —— 静态图以 arc_entry
+     为第二起点，SD-001…SD-090 整链因此可达（与运行期行为镜像）。 */
+  nodes.forEach(function (n) {
+    if ((n.tags || []).indexOf('arc_entry') >= 0) stack.push(n.id);
+  });
   const dangling = [];
   while (stack.length) {
     const id = stack.pop();
@@ -384,12 +416,38 @@ function checkNodes(SD_DATA) {
     if ((sn084.tokens || []).indexOf('{UNFED_TITLE}') < 0) fail('SN-084 必须在 tokens 声明 {UNFED_TITLE}');
   }
 
-  /* SS-085：render:false 舞台指示 + soft_countdown 效果 */
+  /* SS-085：render:false 舞台指示 + soft_countdown 效果
+     EXT-0：next 必须保持 null —— 切片末节点不硬接线，G-1 接续靠
+     SD-001 的 arc_entry 通用跳转（D-G1-02）。 */
   const ss085 = req('SS-085', '（页脚软倒计时）');
   if (ss085) {
     if (ss085.render !== false) fail('SS-085 必须是 render:false（舞台指示，非台词，防元层串泄漏）');
     if (!(ss085.effects || []).some(function (e) { return e.type === 'soft_countdown'; }))
       fail('SS-085 必须含 soft_countdown 效果（R8/R10 只显示不阻断）');
+    if (ss085.next !== null) fail('SS-085.next 必须保持 null（EXT-0：不得硬接线，靠 onEnd 通用续弧跳转）');
+  }
+
+  /* G-1 接线锚点（ARG-BUILD-07）：
+     SD-001 = arc_entry（onEnd 续弧跳转入口，不写死任何 ID）
+     SD-088 = 结局判定挂点（render:false，只写 state.ending，R2 零渲染）
+     SD-090 = 幕 5 收尾（同 SS-085 形态：render:false + soft_countdown，next:null） */
+  const sd001 = req('SD-001', '（G-1 arc_entry 入口）');
+  if (sd001) {
+    if ((sd001.tags || []).indexOf('arc_entry') < 0)
+      fail('SD-001 必须挂 tags:["arc_entry"]（onEnd 续弧跳转入口）');
+  }
+  const sd088 = req('SD-088', '（G-1 结局判定挂点）');
+  if (sd088) {
+    if (sd088.render !== false) fail('SD-088 必须是 render:false（纯计算挂点，R2 零渲染零提示）');
+    if ((sd088.tags || []).indexOf('sd_ending_gate') < 0)
+      fail('SD-088 必须挂 tags:["sd_ending_gate"]（由 sd_ending.decide() 触发三轴判定）');
+  }
+  const sd090 = req('SD-090', '（G-1 幕5 收尾）');
+  if (sd090) {
+    if (sd090.render !== false) fail('SD-090 必须是 render:false（舞台指示，防元层串泄漏）');
+    if (!(sd090.effects || []).some(function (e) { return e.type === 'soft_countdown'; }))
+      fail('SD-090 必须含 soft_countdown 效果（R8/R10 只显示不阻断）');
+    if (sd090.next !== null) fail('SD-090.next 必须为 null（弧终点，由 onEnd 收尾）');
   }
 
   /* SN-081：全片唯一强制等待（skippable:false） */
@@ -434,6 +492,22 @@ function checkNodes(SD_DATA) {
   if (yearHit.length) fail('X-2 主对话渲染面出现绝对年份（疑似历史日期泄漏）：' + yearHit.slice(0, 3).join(' | '));
 }
 
+/* ── DX-02 双写点（J-9 巡检）：404.html 页脚声明必须逐字等同
+   SD_DATA.footer_notice。404 页零 JS 依赖（方案乙），声明静态写死进
+   HTML —— 改一处漏一处直接 fail，不要手动绕过。 */
+function checkDualWriteNotice(SD_DATA) {
+  const footer = String(SD_DATA.footer_notice || '');
+  const html = fs.readFileSync(path.join(ROOT, '404.html'), 'utf8');
+  const m = /<footer class="sd-foot" data-sd-footer>([\s\S]*?)<\/footer>/.exec(html);
+  if (!footer) { fail('DX-02 双写点：SD_DATA.footer_notice 为空'); return; }
+  if (!m) { fail('DX-02 双写点：404.html 未找到 data-sd-footer 页脚'); return; }
+  if (m[1].indexOf(footer) < 0) {
+    fail('DX-02 双写点：404.html 页脚声明与 footer_notice 不一致（改一处漏一处）');
+  } else {
+    note('DX-02 双写点：404.html 页脚声明与 footer_notice 逐字一致');
+  }
+}
+
 /* ── 主流程 ──────────────────────────────────────────────────────────── */
 function main() {
   const files = [];
@@ -451,6 +525,7 @@ function main() {
     scanRendered(extractRendered(SD_DATA));   // ②–④ 屏显红线（渲染面）
     checkBudgetAndGraph(SD_DATA);
     checkNodes(SD_DATA);                       // §9 节点存在性 + 字段 + 明文纪律 + X-2
+    checkDualWriteNotice(SD_DATA);             // DX-02 双写点（404.html ↔ footer_notice）
     checkHash(SD_DATA, sandbox);
   }
 

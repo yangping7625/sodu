@@ -263,6 +263,16 @@
     S().cursor(id);
     running = true;
 
+    /* 节点级停留采样（ATT R_dwell 数据源）：进入新节点即结算上一节点 */
+    try { B().noteNode(id); } catch (e) { /* 静默：采集失败绝不影响可玩性 */ }
+
+    /* 结局判定挂点（SD-088，tags:['sd_ending_gate']）：render:false 纯计算节点，
+       依 ATT/TRS/RET 三轴静默写入 state.ending，不出字、不提示、
+       不改变后续任何一句台词（R2 零泄漏）。判定逻辑在 sd_ending.js。 */
+    if ((n.tags || []).indexOf('sd_ending_gate') >= 0) {
+      try { if (SD.Ending) SD.Ending.decide(); } catch (e) { /* 静默 */ }
+    }
+
     switch (n.kind) {
       case 'line':        return playLine(n, n.text);
       case 'branch_line': return playLine(n, branchText(n));
@@ -351,9 +361,10 @@
     })();
   }
 
-  /* 玩家选项 / 自由输入：此处开探针，玩家应答即为真实间隔 */
+  /* 玩家选项 / 自由输入：此处开探针，玩家应答即为真实间隔。
+     silence_ms（G-1 measure 字段）：传给探针做沉默采样（b10 写入器）。 */
   function playChoice(n) {
-    B().openProbe(n.id);
+    B().openProbe(n.id, n.measure && n.measure.silence_ms);
 
     var opts = n.options || [];
     var fi = n.free_input;
@@ -497,6 +508,11 @@
       S().pushInput(n.id, raw, fi.capture || 'free');
       if (raw.trim()) R().playerEcho(raw.trim());
     }
+    /* G-1 b11：SD-068（capture:'sd_g1_recall'）提交时判定「复述过她的话」，
+       命中则置 sd_b11_recall，驱动 SD-069/070 的 requires 对偶分支。 */
+    if (fi.capture === 'sd_g1_recall') {
+      try { B().checkRecall(raw); } catch (e) { /* 静默 */ }
+    }
     applyFlags(n.set_flags);
     go(fi.next || n.next);
   }
@@ -526,6 +542,30 @@
   }
 
   function onEnd() {
+    /* 结算最后一个节点的停留采样（ATT R_dwell） */
+    try { B().flushNode(); } catch (e) { /* 静默 */ }
+
+    /* 续弧接续（D-G1-02 已锁）：当前弧走完时，若存在 tags 含 'arc_entry'
+       且【尚未读过】的节点，则跳过去继续。这是一条不认识任何具体 ID 的
+       通用规则 —— 将来 G-E / G-2 / G-3 接入时零成本复用。
+       ⚠️ 故意【不】在入口处判 requires：入口节点的 requires 对偶分支
+       （如 SD-001/002 的 sd_b5_left_once 双开场）由 go() 内的级联处理。
+       若在此判 requires，未回访的新玩家会被挡在整条续弧之外 ——
+       与「恒有且仅有一个渲染」的对偶设计冲突，故不判。
+       ⚠️ 跳转前把入口节点标记为已读（=「续弧已进入」的持久门闩）：
+       否则 b5 未置位时 SD-001 永远不渲染、永远不 read，
+       弧走完 → onEnd → 再次跳回 → 无限重播整条续弧。标记后，
+       无论哪条 requires 分支渲染，续弧每会话只进一次（刷新靠 cursor 续播）。 */
+    var entry = null;
+    order.forEach(function (id) {
+      if (entry) return;
+      var n = index[id];
+      if (!n || (n.tags || []).indexOf('arc_entry') < 0) return;
+      if (S().isRead('node:' + id)) return;
+      entry = id;
+    });
+    if (entry) { S().markRead('node:' + entry); go(entry); return; }
+
     /* 切片收尾：软倒计时（只显示不阻断 —— R8 / R10） */
     try { T().armNextAvailable(); } catch (e) {}
     if (typeof SD.onDialogueEnd === 'function') SD.onDialogueEnd();

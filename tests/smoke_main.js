@@ -398,6 +398,121 @@ function main() {
     ok(SD.State.spentBefore('A', 'A-1') === true,
       'S14e ★E7 刷新不重播：A-1 同样不重演');
 
+    /* ── S15 ★ARG-BUILD-07：G-1 可玩性（arc_entry 续弧 + 结局判定挂点） ──
+       切片收尾后，sd_dialogue.onEnd() 的通用「续弧接续」应把当前弧接到
+       tags 含 arc_entry 的节点（SD-001），并一路走到 SD-090（幕 5 收尾）。
+       全程零硬编码 ID 的接线；SD-088 判定挂点静默写入 state.ending。   */
+    ok(SD.State.isRead('node:SD-001'), 'S15a ★G-1 续弧已进入（arc_entry 入口门闩已标记）');
+    ok(SD.State.isRead('node:SD-002') || SD.State.isRead('node:SD-001'),
+      'S15b G-1 开场对偶分支已渲染（新玩家走 SD-002「你还在。」）');
+    ok(SD.State.isRead('node:SD-090'), 'S15c ★G-1 走完：SD-090（幕5 留白收尾）已播出');
+    const ss085n = ((env.win.SD_DATA || {}).dialogue_nodes || [])
+      .find(function (n) { return n.id === 'SS-085'; });
+    ok(!!ss085n && ss085n.next === null,
+      'S15d EXT-0：SS-085.next 保持 null（接续靠 arc_entry 通用能力，未硬接线）');
+    const ending = SD.State.get().ending;
+    ok(['E-shallow', 'E-mixed', 'E-true'].indexOf(ending) >= 0,
+      `S15e ★SD-088 结局判定挂点已静默写入 state.ending（实得「${ending}」，合法三值之一）`);
+    ok(SD.Ending && typeof SD.Ending.decide === 'function', 'S15f sd_ending.js 已挂载（SD.Ending.decide）');
+
+    /* ── S16 结局判定确定性（三轴分数值域 + TRS/RET 贡献） ────────────
+       只更新期望值/计数类断言；红线段落零削弱。scores() 为前台零泄漏的
+       测试面，值域与贡献方向锁定公式实现。                              */
+    const sc = SD.Ending.scores();
+    ok(sc.att >= 0 && sc.att <= 1, `S16a ATT ∈ [0,1]（实得 ${sc.att.toFixed(3)}）`);
+    ok(sc.trs >= 0 && sc.trs <= 1, `S16b TRS ∈ [0,1]（实得 ${sc.trs.toFixed(3)}）`);
+    ok(sc.ret >= 0, `S16c RET ≥ 0（实得 ${sc.ret}）`);
+
+    /* TRS：G-1 全弧驱动后 Q_probe=2（SD-021/SD-041）+ b3 经 SS-061 置位 →
+       trs = 0.70×(1/6) + 0.30×min(2/5,1) ≈ 0.2367（确定性基线） */
+    const trsBase = SD.Ending.trsScore();
+    ok(Math.abs(trsBase - 0.2367) < 0.01,
+      `S16d ★TRS 基线确定（Q_probe=2 + b3 → ≈0.2367，实得 ${trsBase.toFixed(4)}）`);
+    /* b2：标记到访过 /save → TRS 应增加 0.70×(1/6) ≈ 0.1167 */
+    SD.State.get().read_flags['page:/save'] = Date.now();
+    SD.State.commit();
+    const trsB2 = SD.Ending.trsScore();
+    ok(trsB2 - trsBase > 0.10 && trsB2 - trsBase < 0.13,
+      `S16e ★b2 派生位计入 TRS（+${(trsB2 - trsBase).toFixed(4)}，期望 ≈+0.1167）`);
+    delete SD.State.get().read_flags['page:/save'];
+    SD.State.commit();
+
+    /* RET 系列必须在虚拟时钟内断言：S().now() 是「统一时间源」，与
+       first_visit_at（虚拟时钟内写入）同源；脱离虚拟时钟后 Date.now()
+       跳回真实墙钟，跨日判定会把「今天」误判成跨了日。 */
+    let ret0, retSeeded, warpBefore, warpAfter;
+    env.withClock(() => {
+      ret0 = SD.Ending.retScore();
+      /* 注入跨会话离开 → RET ≥ 1 */
+      const dNow = Date.now();
+      SD.State.get().leave_ts = [
+        { at: dNow - 3 * 86400000, from: '/', method: 'x' },
+        { at: dNow - 1 * 86400000, from: '/', method: 'x' }
+      ];
+      SD.State.get().timeline.first_visit_at = dNow - 4 * 86400000;
+      SD.State.commit();
+      retSeeded = SD.Ending.retScore();
+      /* EC-02 反作弊：改时间 → 跨日 N_daycross 归零（只剩 session gap） */
+      warpBefore = retSeeded;
+      SD.State.setWarp(7 * 3600 * 1000);
+      warpAfter = SD.Ending.retScore();
+      SD.State.setWarp(0);
+    });
+    ok(ret0 === 0, `S16f RET 无回访记录 = 0（实得 ${ret0}）`);
+    ok(retSeeded >= 2, `S16g ★跨会话回访计入 RET（注入 2 次离开 → ${retSeeded} ≥ 2）`);
+    ok(warpAfter < warpBefore,
+      `S16h ★改时间不能刷回访：N_daycross 归零（${warpBefore} → ${warpAfter}）`);
+    ok(SD.State.hasFlag('sd_b4_warp_seen'), 'S16i 反作弊置 b4（sd_b4_warp_seen）');
+    /* 复原（S16 是本环境的最后一段，复原仅为不污染后续输出） */
+    env.withClock(() => {
+      SD.State.get().leave_ts = [];
+      SD.State.get().timeline.first_visit_at = null;
+      SD.State.commit();
+    });
+
+    /* ── S17 ★回访玩家结局分化（KD-03 / D-G1-03 端到端） ─────────────
+       预置「3 天前离开过」的存档 → RET ≥ 1；TRS 低（未越界）。
+       KD-03 的灵魂：E-true 的门槛不是「做得多」，是「有分寸」——
+       快进不细读（att<0.55）连回访玩家也拿不到真结局；认真读
+       （自陈节点停留 ≥ baseline）才命中 E-true。 */
+    const retStart = Date.parse('2026-03-05T12:00:00Z');
+    const seedSave = {
+      v: 1,
+      timeline: { first_visit_at: retStart - 3 * 86400000 },
+      leave_ts: [{ at: retStart - 3 * 86400000, from: '/', method: 'seed' }]
+    };
+    const envR = createEnv({
+      siteRoot: site.siteRoot, pagePath: site.page('index.html'),
+      storage: true, startMs: retStart,
+      seedStore: { 'sudu_save_v1': JSON.stringify(seedSave) }
+    });
+    envR.runScripts();
+    const logR = drive(envR, {
+      name: '阿岩', freeText: '你说。', thinkMs: 1200, probePauseMs: PAUSE_MS,
+      feedIndex: 0, choiceIndex: 0
+    });
+    const screenR = envR.doc.body.textContent;
+    ok(screenR.includes('你回来了。'),
+      'S17a ★回访玩家开场渲染 SD-001「你回来了。」（b5 分支）');
+    ok(screenR.includes('上次你走了以后'),
+      'S17b ★回访痕迹 B-K3 渲染（SD-083「上次你走了以后…」）');
+    ok(envR.win.SD.State.get().ending === 'E-mixed',
+      'S17c ★快进不细读：回访玩家 att<0.55 → 兜底 E-mixed（E-true 需有分寸，KD-03）');
+    /* 模拟「认真读」：把自陈节点停留补到恰好 = baseline（R_dwell 每节点 1.0，
+       不触发 EC-03 离席剔除），再跑一遍判定 → 应命中 E-true。 */
+    const confessR = envR.win.SD.Ending.confessNodes();
+    envR.withClock(() => {
+      const dwR = envR.win.SD.State.get().dwell_ms;
+      confessR.forEach(function (n) {
+        const clean = String(n.text || '').replace(/\{[A-Za-z_:]+\}/g, '');
+        dwR['node:' + n.id] = clean.length * 220;
+      });
+      envR.win.SD.State.commit();
+    });
+    const endingCareful = envR.win.SD.Ending.decide();
+    ok(endingCareful === 'E-true',
+      'S17d ★认真读 + 回访 + 不越界 → E-true（KD-03：真结局要求有分寸）');
+
     report();
   } finally {
     site.cleanup();

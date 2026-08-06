@@ -1,10 +1,17 @@
 /* ==========================================================================
-   sd_behavior.js · 隐式行为采集（J-4）★ A-1 的命脉
+   sd_behavior.js · 隐式行为采集（J-4）★ A-1 的命脉 + G-1 三轴采集
 
    采集：dwell_ms（节点级 + 页面级 + max_gap / avg / median）
         typing_events（打字后清空侦测）
         leave_ts（visibilitychange + pagehide，不用 beforeunload —— 移动端不可靠）
         input_history（由 sd_state 落盘）
+
+   G-1（ARG-BUILD-07）新增采集面（真源：arg_g1_dialogue_script.md §4）：
+     ① 节点级停留采样 noteNode/flushNode → ATT R_dwell 分子
+     ② 沉默采样（openProbe 带 measure.silence_ms，超窗未提交计数）→ b10 写入器
+     ③ 回访布尔 b5（进页时 leave_ts 非空 → sd_b5_left_once）
+     ④ 复述布尔 b11（checkRecall，SD-068 提交时对她的历史台词做模糊命中）
+     三轴分数计算与结局判定在 js/sd_ending.js（纯函数），本模块只负责采集。
 
    两条铁律：
    ① R2 —— 前台零进度 UI。本模块不渲染任何东西，不回显任何数字给玩家。
@@ -20,17 +27,65 @@
 
   var A1_PAUSE_MS = 8000;      // 兜底① 触发阈值：最长停顿 ≥ 8s
   var MIN_TYPED   = 2;         // 兜底② 触发阈值：打了 ≥2 字又清空
+  var SILENCE_HITS = 3;        // b10：沉默采样 ≥3 次置位（EC-07 豁免前提）
 
   var probe = null;            // { node, at }
   var replies = [];            // 本会话全部响应间隔（ms）
   var pageEnterAt = Date.now();
   var pageId = '/';
 
+  /* ── G-1：节点级停留采样（ATT R_dwell 数据源） ─────────────────────
+     进入新节点即结算上一节点停留（含 render:false 舞台节点 —— 其 delay
+     本身就构成停留）。R2：采集结果只进存档，前台永不回显。 */
+  var nodeEnterId = null;
+  var nodeEnterAt = 0;
+  function addNodeDwell(id, ms) {
+    if (!id || !(ms > 0)) return;
+    S().dwell('node:' + id, (S().dwell('node:' + id) || 0) + ms);
+  }
+  function noteNode(id) {
+    var now = Date.now();
+    if (nodeEnterId && nodeEnterId !== id) addNodeDwell(nodeEnterId, now - nodeEnterAt);
+    nodeEnterId = id;
+    nodeEnterAt = now;
+  }
+  function flushNode() {
+    if (!nodeEnterId) return;
+    addNodeDwell(nodeEnterId, Date.now() - nodeEnterAt);
+    nodeEnterId = null; nodeEnterAt = 0;
+  }
+
+  /* ── G-1：沉默采样（b10 写入器） ───────────────────────────────────
+     6 个带 measure.silence_ms 的输入节点（SD-010/021/030/041/047/068），
+     单次窗 45s 超窗未提交计 1 次；累计 ≥3 次置位 sd_b10_silence。
+     ⚠️ 实现采用【事件驱动的窗口检查】，不挂常驻 setTimeout 看门狗：
+     无头测试的 runUntilIdle 会把任何挂起的定时器当「待办工作」快进，
+     45s 看门狗被快进后会把探测间隔顶到 46s（S5c 失真）、并制造假沉默。
+     事件驱动在行为上等价 —— 超窗未提交的判定点移到提交时与离开时：
+       · closeProbe（玩家最终提交）：elapsed ≥ 窗 → 计 1 次
+       · onLeave（玩家开着输入页离开）：elapsed ≥ 窗 → 计 1 次 */
+  var silenceCount = 0;
+  function countSilence() {
+    silenceCount++;
+    if (silenceCount >= SILENCE_HITS) S().flag('sd_b10_silence', true);
+  }
+  function checkProbeSilence() {
+    if (!probe || !(probe.silence_ms > 0)) return;
+    if (Date.now() - probe.at >= probe.silence_ms) countSilence();
+  }
+
   /* ── 页面级 ─────────────────────────────────────────────────────── */
   function initPage(id) {
     pageId = id || '/';
     pageEnterAt = Date.now();
     S().markRead('page:' + pageId);
+
+    /* G-1 b5：至少一次「离开后回来」—— leave_ts 非空即置位（§3.2）。
+       SD-001/002、SD-083/084 据此切换回访/未回访双开场。 */
+    try {
+      var d = S().get();
+      if (d.leave_ts && d.leave_ts.length > 0) S().flag('sd_b5_left_once', true);
+    } catch (e) { /* 静默 */ }
 
     /* leave_ts：移动端只有 visibilitychange / pagehide 可靠 */
     try {
@@ -44,6 +99,8 @@
 
   function onLeave(method) {
     try {
+      /* G-1 沉默采样：开着输入页离开且已超窗 → 计 1 次沉默（b10） */
+      checkProbeSilence();
       flushPageDwell();
       S().pushLeave(pageId, method);
     } catch (e) { /* 静默 */ }
@@ -59,13 +116,16 @@
     pageEnterAt = now;
   }
 
-  /* ── 节点级探针：她"开始等你"的那一刻 ───────────────────────────── */
-  function openProbe(nodeId) {
-    probe = { node: nodeId, at: Date.now() };
+  /* ── 节点级探针：她"开始等你"的那一刻 ─────────────────────────────
+     silenceMs：该输入节点的沉默采样窗（G-1 measure.silence_ms）——
+     超窗未提交的判定在提交（closeProbe）与离开（onLeave）时进行。 */
+  function openProbe(nodeId, silenceMs) {
+    probe = { node: nodeId, at: Date.now(), silence_ms: silenceMs };
   }
 
-  /* 玩家应答 → 记录真实间隔，更新派生统计 */
+  /* 玩家应答 → 记录真实间隔，更新派生统计（应答即结算沉默窗口） */
   function closeProbe(nodeId) {
+    checkProbeSilence();
     if (!probe) return 0;
     var id = nodeId || probe.node;
     var gap = Date.now() - probe.at;
@@ -117,6 +177,63 @@
     el._sdReset = function () { peak = 0; peek = ''; };
   }
   function clearWatch(el) { if (el && el._sdReset) el._sdReset(); }
+
+  /* ── G-1 b11：复述过素读说过的原话（SD-068 提交时判定） ──────────
+     判据（§3.2）：去标点归一化后与她的历史台词
+       ① 连续 ≥4 字重合，或 ② 编辑距离 ≤2。
+     输入过短（<4 字）不构成"复述"，直接不命中 —— 避免 2 字输入
+     与任何短句都满足编辑距离 ≤2 的假阳性。 */
+  var RECALL_MIN_LEN = 4;
+  function herLines() {
+    var nodes = (g.SD_DATA && g.SD_DATA.dialogue_nodes) || [];
+    var out = [];
+    nodes.forEach(function (n) {
+      if (n.speaker === 'her' && typeof n.text === 'string' && n.render !== false) {
+        var h = S().norm(n.text);
+        if (h) out.push(h);
+      }
+    });
+    return out;
+  }
+  function commonSubLen(a, b) {
+    var best = 0, i, j, k;
+    for (i = 0; i < a.length; i++) {
+      for (j = 0; j < b.length; j++) {
+        k = 0;
+        while (i + k < a.length && j + k < b.length && a[i + k] === b[j + k]) k++;
+        if (k > best) best = k;
+      }
+    }
+    return best;
+  }
+  function editDist(a, b) {
+    var m = a.length, n = b.length;
+    if (!m) return n; if (!n) return m;
+    var prev = [], i, j;
+    for (j = 0; j <= n; j++) prev[j] = j;
+    for (i = 1; i <= m; i++) {
+      var cur = [i];
+      for (j = 1; j <= n; j++) {
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      }
+      prev = cur;
+    }
+    return prev[n];
+  }
+  function checkRecall(raw) {
+    var r = S().norm(raw);
+    if (!r || r.length < RECALL_MIN_LEN) return false;
+    var lines = herLines();
+    for (var i = 0; i < lines.length; i++) {
+      var h = lines[i];
+      if (!h) continue;
+      if (commonSubLen(r, h) >= 4 || editDist(r, h) <= 2) {
+        S().flag('sd_b11_recall', true);
+        return true;
+      }
+    }
+    return false;
+  }
 
   /* ── A-1 三级兜底选择器 ★ P2 硬指标 ─────────────────────────────
      ① 最长停顿 ≥ 8s          → pause    （主路径：停顿被当成回答）
@@ -188,6 +305,10 @@
     closeProbe: closeProbe,
     watchInput: watchInput,
     clearWatch: clearWatch,
+    /* G-1：节点停留 / 沉默 / 复述采集 */
+    noteNode: noteNode,
+    flushNode: flushNode,
+    checkRecall: checkRecall,
     pickA1Tier: pickA1Tier,
     tokens: tokens,
     a1Lines: a1Lines,

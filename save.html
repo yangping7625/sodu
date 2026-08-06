@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <title>素读 · 轻助手 / 存档 001</title>
   <meta name="description" content="存档 001。">
   <meta name="robots" content="noindex">
@@ -10,7 +10,11 @@
   <link rel="stylesheet" href="css/sd_base.css">
   <link rel="stylesheet" href="css/sd_save.css">
 </head>
-<body>
+<!-- DX-01（P0）：data-site 原由 sd_router.js 在 JS 执行后才写入，
+     此前本页按 :root 默认值渲染（白底/无衬线/16px/1.7），JS 执行后瞬间跳到
+     纸色/等宽/14px/1.35 —— 弱网下可见整页跳变，玩家读作「加载有问题」，
+     恐怖变故障，直接违 R5。此处静态写死；router 的 setAttribute 保留（幂等）。 -->
+<body data-site="save">
   <div class="sd-wrap">
     <header class="sd-slot" data-sd-slot></header>
     <p class="sd-written" data-sd-written></p>

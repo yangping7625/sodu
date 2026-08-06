@@ -35,7 +35,16 @@
 
       /* 隐式行为五字段 + 本作新增两字段 */
       read_flags: {},      // { 'page:/save': ts, 'node:PN-014': ts }
-      path_flags: {},      // { opened_save: true, solved_acrostic: true, ... }
+      /* G-1 布尔位默认值（arg_g1_dialogue_script.md §3.2 自文档，非必需）：
+         path_flags 是自由字典，未置位 = hasFlag() 返回 false（即默认 false）。
+         此处预声明仅为显式登记 G-1 新增写入的三位（b5/b10/b11），
+         不构成第 13 位、不改 SCHEMA、无迁移成本。既有存档经 load() 补齐
+         顶层键时不会触碰已存在的 path_flags，语义与不预声明完全一致。 */
+      path_flags: {
+        sd_b5_left_once: false,   // 至少一次「离开后回来」（进页时由 sd_behavior 写入）
+        sd_b10_silence: false,    // 关键节拍沉默累计 ≥3 次（EC-07 豁免前提）
+        sd_b11_recall: false      // 复述过素读说过的原话（SD-068 提交时判定）
+      },
       dwell_ms: {},        // { 'node:PC-012': 24310, session_total, max_gap_ms, ... }
       leave_ts: [],        // [{ at, from, method }]
       input_history: [],   // [{ at, node, raw, norm, role }]

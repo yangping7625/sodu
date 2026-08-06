@@ -10,11 +10,15 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 18px;
+  /* PO-4O-02：V-05 要求「句号后至少 6 倍行高」。16px×1.7≈27px，6 倍≈163px。
+     clamp 保证小屏不撑破、大屏不塌陷。 */
+  gap: clamp(110px, 20vh, 190px);
 }
 .sd-404__title {
   margin: 0;
-  font-size: 15px;
+  /* PO-4O-03：全页只有这一句话，它必须是页面上最清楚的东西。
+     16px + var(--sd-dim)（随 PO-G-01 已为 #76767c，4.51:1）。 */
+  font-size: 16px;
   color: var(--sd-dim);
   letter-spacing: .02em;
 }
@@ -23,4 +27,7 @@
   color: var(--sd-fg);
   text-decoration: underline;
   text-underline-offset: 3px;
+  /* PO-4O-06：全页唯一可点元素，14px 内联文字触控区不足 */
+  display: inline-block;
+  padding: 12px 16px;
 }

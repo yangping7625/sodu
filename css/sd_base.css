@@ -11,11 +11,17 @@
    ========================================================================== */
 
 /* ── 主题变量：结构 + 皮肤 ──────────────────────────────────────────── */
+/* X-5 地层隔离：:root（2026 素读地层，冷灰）与 body[data-site="save"]
+   （系统面地层，暖灰）的灰阶各自独立赋值，数值刻意不相等，
+   不得抽公共变量、不得互相 var() 引用。 */
 :root {
   --sd-bg: #ffffff;
   --sd-fg: #1a1a1c;
-  --sd-dim: #8a8a90;
-  --sd-faint: #c9c9ce;
+  /* PO-G-01：成句文本的最浅值，4.51:1（AA） */
+  --sd-dim: #76767c;
+  /* PO-G-01：装饰性描边 / 占位符 / 非成句极弱标记，3.02:1 */
+  --sd-faint: #949499;
+  /* 纯装饰分隔线，不得再用于输入框边界（见 PO-IX-12） */
   --sd-line: #ececef;
 
   --sd-font: system-ui, -apple-system, "Segoe UI", "Noto Sans SC",
@@ -50,8 +56,10 @@ body[data-site="assistant"][data-temp="shifted"] {
 body[data-site="save"] {
   --sd-bg: #f7f6f2;
   --sd-fg: #23231f;
-  --sd-dim: #7d7d75;
-  --sd-line: #ddddd4;
+  /* PO-SV-01：4.55:1，刻意偏暖（蓝分量 −8），与 :root 的 #76767c 不相等 */
+  --sd-dim: #717169;
+  /* PO-SV-04：点线引导 1.26:1 → 1.59:1，仍是发丝级但存在 */
+  --sd-line: #c6c6ba;
   --sd-font-active: var(--sd-mono);
   --sd-size: 14px;
   --sd-lh: 1.35;
@@ -77,8 +85,16 @@ body {
   line-height: var(--sd-lh);
   /* P4：零横向滚动 */
   overflow-x: hidden;
-  word-break: break-word;
-  overflow-wrap: anywhere;
+  /* PO-G-05 中文排版基线：
+     line-break:strict  → CJK 禁则，行首不出现 。，、」）
+     overflow-wrap:break-word（原 anywhere）→ 不把 FLAG_█████ 从任意位置劈开
+     word-break 已移除（非标准且与上条重复）
+     text-spacing-trim  → 渐进增强，中文标点占位收窄
+     tabular-nums       → 关键：{mm:ss} 等宽，逐秒不抖动（抖动会被读作 bug，违 R5） */
+  line-break: strict;
+  overflow-wrap: break-word;
+  text-spacing-trim: space-first;
+  font-variant-numeric: tabular-nums;
   transition: background-color 1.2s linear;
 }
 
@@ -94,17 +110,27 @@ button, input {
   width: 100%;
   max-width: var(--sd-col);
   margin: 0 auto;
-  padding: 0 var(--sd-pad);
+  /* PO-G-06：viewport-fit=cover 下补全左右安全区（刘海机横屏） */
+  padding: 0
+           max(var(--sd-pad), env(safe-area-inset-right, 0px))
+           0
+           max(var(--sd-pad), env(safe-area-inset-left, 0px));
 }
 
 .sd-head {
-  padding: 18px 0 10px;
+  /* PO-G-06：补顶部安全区 */
+  padding: calc(18px + env(safe-area-inset-top, 0px)) 0 10px;
   font-size: 12px;
   color: var(--sd-dim);
-  letter-spacing: .02em;
+  /* PO-IX-08：加字距，让页头读作「标签」而非「小标题」 */
+  letter-spacing: .08em;
 }
 
-/* ── A2：页脚虚构声明（8px 灰字，可发现但不破坏沉浸） ──────────────── */
+/* ── A2：页脚虚构声明（10px，可发现但不破坏沉浸） ────────────────────
+   PO-G-02：这行是实质性隐私告知与虚构声明，不是装饰。
+   8px + 1.65:1 等于不存在，A1–A6 合规链条上是空的。
+   10px + 4.51:1 仍是全页最小最淡的一行，且在 .sd-foot（margin-top:40px）
+   之后，不进入首屏，不破坏沉浸。 */
 .sd-foot {
   margin-top: 40px;
   padding: 16px 0 calc(18px + env(safe-area-inset-bottom, 0px));
@@ -112,9 +138,9 @@ button, input {
 
 .sd-notice {
   margin: 0;
-  font-size: 8px;
+  font-size: 10px;
   line-height: 1.6;
-  color: var(--sd-faint);
+  color: var(--sd-dim);
   letter-spacing: .02em;
 }
 
@@ -128,9 +154,20 @@ button, input {
 /* ── 可访问性 ───────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
+
+  /* PO-G-07 ①：sd-blink 被杀后三点停在 opacity .25（几乎不可见），
+     「正在输入」状态完全失去表达。这不是恢复动画，是给静止态一个可读值。 */
+  .sd-typing i { opacity: .6; }
+
+  /* PO-G-07 ②：豁免 body 的 background-color 过渡。
+     WCAG 的 reduce-motion 针对前庭位移动效；S-065 色温位移若变成瞬时跳变
+     反而更扎眼，对光敏感用户也更差，且违背「说不清哪变了」的设计意图。 */
+  body { transition: background-color 1.2s linear !important; }
 }
 
+/* PO-G-03：焦点态去系统蓝、加粗到可见（4.51:1，≥3:1 达标） */
 :focus-visible {
-  outline: 1px solid var(--sd-dim);
-  outline-offset: 2px;
+  outline: 2px solid var(--sd-dim);
+  outline-offset: 1px;
+  border-radius: inherit;   /* 跟随元素圆角，避免圆形按钮套方框 */
 }

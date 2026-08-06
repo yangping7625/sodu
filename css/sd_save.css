@@ -13,7 +13,8 @@
 }
 .sd-written {
   margin: 0 0 14px;
-  font-size: 11px;
+  /* PO-SV-06：11px 在移动端中文下限之下；12px + 新灰阶（4.55:1）才读得出来 */
+  font-size: 12px;
   color: var(--sd-dim);
 }
 
@@ -27,9 +28,12 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 8px 0;
+  /* PO-SV-05：与 PO-SV-04 配套 —— 分层主要靠间距、其次才靠线。
+     加 2px 比把线加黑更克制，也更像真实的表格。 */
+  padding: 10px 0;
   border-bottom: 1px dotted var(--sd-line);
   font-family: var(--sd-mono);
+  /* PO-SV-02：13px / 1.45 保持（对比聊天面 16px 已达成 V-04 区隔，再降跌破可读线） */
   font-size: 13px;
   line-height: 1.45;
   word-break: break-all;
@@ -41,7 +45,23 @@
   border-bottom: 1px dotted var(--sd-line);
   transform: translateY(-3px);
 }
-.sd-flag__v { color: var(--sd-dim); text-align: right; flex: 0 0 auto; }
+/* PO-SV-03：原为 flex:0 0 auto —— 键与值均不可收缩，超行宽时整行溢出，
+   被 body{overflow-x:hidden} 静默裁掉右侧的值。存档页的值就是全部内容。 */
+.sd-flag__v {
+  color: var(--sd-dim);
+  text-align: right;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* PO-SV-03 窄屏重排（唯一断点 430px，同 PO-IX-19）：
+   放弃「点线引导」而保住「值可读」。键一行、值缩进一行，
+   仍是终端目录的语法（像 ls -l 换行），不破坏地层身份。桌面端不变。 */
+@media (max-width: 430px) {
+  .sd-flag       { flex-wrap: wrap; }
+  .sd-flag__dots { display: none; }
+  .sd-flag__v    { flex: 1 0 100%; text-align: left; padding-left: 1em; }
+}
 
 .sd-flag--redacted,
 .sd-flag--redacted .sd-flag__k,
@@ -60,11 +80,15 @@
   flex: 1 1 12em;
   min-width: 0;
   padding: 8px 10px;
-  border: 1px solid var(--sd-line);
+  /* PO-SV-07：纸色底上的浅描边框几乎不可见。此处为方角等宽风格，
+     与聊天面圆角胶囊形成刻意反差（X-5）。 */
+  border: 1px solid #b8b8ac;
   background: #fff;
   font-family: var(--sd-mono);
   font-size: 14px;
 }
+/* PO-SV-08：FLAG 解谜是核心交互，聚焦态必须明确。无光晕。 */
+.sd-puzzle__input:focus { border-color: var(--sd-dim); }
 .sd-puzzle__btn {
   flex: 0 0 auto;
   padding: 8px 16px;

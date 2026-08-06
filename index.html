@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <title>素读 · 轻助手</title>
   <meta name="description" content="素读 · 轻助手 —— 一个只会读东西的小程序。">
   <meta name="robots" content="index,follow">
@@ -10,7 +10,9 @@
   <link rel="stylesheet" href="css/sd_base.css">
   <link rel="stylesheet" href="css/sd_chat.css">
 </head>
-<body>
+<!-- DX-01 同步项：静态标注地层，消除首帧主题跳变。
+     sd_router.js 的 setAttribute 保留不动（幂等，作渐进增强）。 -->
+<body data-site="assistant">
   <div class="sd-wrap">
     <header class="sd-head">素读 · 轻助手</header>
 
@@ -31,6 +33,8 @@
   <script src="js/sd_idiolect.js"></script>
   <!-- 行为 / 渲染 / 谜题 -->
   <script src="js/sd_behavior.js"></script>
+  <!-- 结局判定系统（G-1 · SD-088 挂点 · 只写不读 / R2 零泄漏） -->
+  <script src="js/sd_ending.js"></script>
   <script src="js/sd_render.js"></script>
   <script src="js/sd_puzzle.js"></script>
   <!-- 对话机 + 路由 -->
