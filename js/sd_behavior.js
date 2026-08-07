@@ -123,8 +123,12 @@
     probe = { node: nodeId, at: Date.now(), silence_ms: silenceMs };
   }
 
-  /* 玩家应答 → 记录真实间隔，更新派生统计（应答即结算沉默窗口） */
-  function closeProbe(nodeId) {
+  /* 玩家应答 → 记录真实间隔，更新派生统计（应答即结算沉默窗口）。
+     opts.skipRecompute（ARG-BUILD-12 · CF-3 / SC-035）：投喂 T-hit 的那次
+     输入耗时【不计入】a1_probe —— 否则玩家粘贴长文会拉长输入耗时、
+     a1_tiers 选错档，A-1（2 席 A 类之一）演出走样。仍记 dwell（ATT 需要），
+     但不进 replies / 不重算 avg·median·max_gap（a1 的判据数据源）。 */
+  function closeProbe(nodeId, opts) {
     checkProbeSilence();
     if (!probe) return 0;
     var id = nodeId || probe.node;
@@ -133,6 +137,7 @@
     if (T().skewed(gap)) gap = 0;                           // E5
 
     S().dwell('node:' + id, gap);
+    if (opts && opts.skipRecompute) return gap;
     replies.push(gap);
     recompute(id, gap);
     return gap;

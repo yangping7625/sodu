@@ -1303,6 +1303,92 @@ function walkQsw() {
   return out;
 }
 
+/* ── (H) ARG-BUILD-12 · 组2 投喂引擎红线（AS-1~AS-8 + CF-3） ────────
+   全部来自 arg_g1_revision_design.md §8 的可扫描断言汇总。
+   共同纪律：缺文件即跳过（骨架期 feed_markers 可能未生成）。         */
+
+/* AS-4（SH-0 回归）：既有 173 节点的 text/id/next 与上线版逐字节一致。
+   做法：把当前 dialogue_nodes 的关键字段连成串做 sha256，与台账基线比对。
+   基线 = BUILD-12 组6 提交后的 173 节点（text/id/next 未被组6/组2 触碰）。
+   谁动了既有节点当场 fail —— 这是 SH-0 的可执行回归。 */
+const NODE_BASELINE_SHA = '25309c279e6be2a861ff13a264eeeae44d770daa9639c81c41ec6386f09e6210';
+
+function checkNodeBaseline(SD_DATA) {
+  const nodes = (SD_DATA && SD_DATA.dialogue_nodes) || [];
+  const sig = nodes.map(function (n) {
+    return n.id + '|' + String(n.text == null ? '' : n.text) +
+           '|' + String(n.next == null ? '' : n.next);
+  }).join('\n');
+  const got = crypto.createHash('sha256').update(sig, 'utf8').digest('hex');
+  if (got !== NODE_BASELINE_SHA) {
+    fail(`[AS-4 / SH-0] 既有 173 节点的 text/id/next 被改动（基线 ${NODE_BASELINE_SHA.slice(0, 12)}…，实得 ${got.slice(0, 12)}…）—— 既有节点一个字都不许动`);
+  } else {
+    note(`[AS-4 / SH-0] 既有节点 ${nodes.length} 个 text/id/next 与基线逐字节一致`);
+  }
+}
+
+function checkFeedEngine(SD_DATA) {
+  const feedJs = readIf('js/sd_feed.js');
+  if (feedJs === null) { note('投喂引擎红线：js/sd_feed.js 不存在，优雅跳过'); return; }
+  const src = stripJs(feedJs);
+
+  /* ── AS-2：marker_table 只存 64 位十六进制（FD-H1） ────────────── */
+  const mkFile = readIf('data/feed_markers.js');
+  if (mkFile !== null) {
+    const valRe = /:\s*"([0-9a-f]{64})"/g;
+    const vals = [];
+    let m;
+    while ((m = valRe.exec(mkFile)) !== null) vals.push(m[1]);
+    /* 若出现疑似明文别名（含中文 / 非 hex 的长串值）→ fail。
+       只盯【值位】：键是固定结构名（markers / SD_FEED_MARKERS）。 */
+    const aliasRe = /:\s*["']([^"']{4,})["']/g;
+    let am, leaked = [];
+    while ((am = aliasRe.exec(mkFile)) !== null) {
+      const v = am[1];
+      /* 结构串白名单（生成器固定输出，不是别名） */
+      if (v === 'use strict' || v === 'window' || v === 'globalThis') continue;
+      /* 值必须是 64 位十六进制，否则是明文泄漏 */
+      if (!/^[0-9a-f]{64}$/.test(v)) leaked.push(v);
+    }
+    if (leaked.length) fail(`[AS-2 / FD-H1] feed_markers.js 出现疑似明文别名：${leaked.slice(0, 3).join(', ')}`);
+    note(`[AS-2] feed_markers.js 哈希值 ${vals.length} 个（全部 64 位十六进制）`);
+  }
+
+  /* ── AS-1：SF-* 节点 effects 不得出现 {type:'horror'} ─────────── */
+  const sfNodes = ((SD_DATA && SD_DATA.dialogue_nodes) || [])
+    .filter((n) => /^SF-/.test(n.id || ''));
+  sfNodes.forEach((n) => {
+    const hasHorror = (n.effects || []).some((e) => e.type === 'horror');
+    if (hasHorror) fail(`[AS-1] SF-* 节点 ${n.id} 挂了 horror —— 投喂是回报不是异常（§1.8 HB-5）`);
+  });
+  if (sfNodes.length) note(`[AS-1] SF-* 节点 ${sfNodes.length} 个，零 horror（HB-5）`);
+
+  /* ── AS-6：feed_hooks 不含 SC-005 / SC-057 ────────────────────── */
+  if (/(['"])SC-005['"]|(['"])SC-057['"]/.test(src)) {
+    /* 只允许出现在排除清单（FEED_HOOK_EXCLUDE），不允许出现在开启表 */
+    const excl = /FEED_HOOK_EXCLUDE\s*=\s*\{[^}]*SC-005[^}]*SC-057[^}]*\}/.test(src);
+    const opened = /FEED_HOOKS\s*=\s*\{[^}]*['"]SC-005['"]/.test(src) ||
+                  /FEED_HOOKS\s*=\s*\{[^}]*['"]SC-057['"]/.test(src);
+    if (opened) fail('[AS-6] feed_hooks 不应开启 SC-005 / SC-057（命名 / 谜题通道唯一性）');
+    if (!excl) fail('[AS-6] SC-005 / SC-057 必须出现在 FEED_HOOK_EXCLUDE');
+  }
+
+  /* ── AS-3：normalize / fragText 剥离绝对日期（X-2 双点） ──────── */
+  if (src.indexOf('stripDates') < 0) fail('[AS-3] sd_feed.js 未实现 stripDates（X-2 日期剥离）');
+  if (src.indexOf('DATE_RE') < 0) fail('[AS-3] sd_feed.js 缺日期正则表（\\d{4}-\\d{2}-\\d{2} 等）');
+
+  /* ── AS-5 / CF-3：SC-029 idiolect 排除（命中跳过语料池） ──────── */
+  if (!/skipIdiolect|skip_idiolect/.test(stripJs(readIf('js/sd_dialogue.js') || ''))) {
+    fail('[AS-5 / CF-3] sd_dialogue.js 未见 idiolect 排除逻辑（T-hit/U-1 不得进语料池）');
+  }
+
+  /* ── AS-8：全站无 gonglue / gl_，且 mk_* 键名不含 那两字作品名 ──
+     全站 gonglue/gl_ 已由 ① 全文件裸扫覆盖；这里补 mk_* 键名判定。 */
+  const mkKeys = (src.match(/mk_[a-z_0-9]+/g) || []);
+  if (!mkKeys.length) note('[AS-8] sd_feed.js 未见 mk_* 键名（骨架期可能为空）');
+  note('投喂引擎红线：AS-1/2/3/5/6/8 + CF-3（SC-029 idiolect 排除 / SD-068 b11 优先 / SC-035 a1_probe 隔离）');
+}
+
 /* ── 主流程 ──────────────────────────────────────────────────────────── */
 function main() {
   const files = [];
@@ -1339,6 +1425,8 @@ function main() {
     checkDualWriteNotice(SD_DATA);             // DX-02 双写点（404.html ↔ footer_notice）
     checkHash(SD_DATA, sandbox);
     checkFeedSourceX1(SD_DATA);                // ARG-BUILD-12 · 组6 X-1 出处 ID 巡检
+    checkNodeBaseline(SD_DATA);                // ARG-BUILD-12 · AS-4 SH-0 节点回归
+    checkFeedEngine(SD_DATA);                  // ARG-BUILD-12 · 组2 投喂引擎红线（AS-1~8 + CF-3）
   }
 
   /* 正 rename 自检：部署产物中至少应出现 sd_/sudu_/soda_/qsw_ 之一 */

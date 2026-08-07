@@ -81,6 +81,7 @@ jobs:
             --exclude='/promo' \
             --exclude='/design' \
             --exclude='/publish' \
+            --exclude='/tools' \
             --exclude='*.md' \
             ./ publish/
           # 确保下划线目录不被 Jekyll 吞掉（向后兼容）

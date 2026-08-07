@@ -586,6 +586,73 @@ function main() {
       'S19f ★V-R1 容器是被动渲染（原样进出，日期剥离归引擎 normalize()，X-2 不落渲染层）');
     if (frag3 && frag3.parentNode) frag3.parentNode.removeChild(frag3);
 
+    /* ── S20 ★ARG-BUILD-12 · 组2 投喂引擎骨架（normalize / 四层判定 / CF-3）─
+       引擎机制直测。marker_table 骨架期为空（真别名等文策渊），故：
+         · T-hit 不可达 → U-0/U-1/U-2 全链路可验
+         · normalize 第 6 步日期剥离是 X-2 红线，必须单测（AS-3）
+         · SC-029 idiolect 排除 / SD-068 b11 优先 / SC-035 a1_probe 隔离
+           是 CF-3 三条执行顺序，各占一条断言                       */
+    const F = env.win.SD.Feed;
+    ok(!!F, 'S20a ★SD.Feed 引擎已挂载（js/sd_feed.js）');
+
+    /* normalize 七步 + X-2 日期剥离（AS-3）。
+       ⚠️ 判据用「20xx 年份」而非任意 4 位数字 —— 13:27 这类时刻残留在
+       剥离后仍是 1327，它不可怕；可怕的只有 2011/2019 这类绝对年份。 */
+    const normDate = F.normalize('1 楼 苏打志 ｜ 2011-02-09 13:27 沉默也是一种选项。');
+    ok(!/(?:19|20)\d{2}/.test(normDate), `S20b ★normalize 剥离绝对年份（AS-3，实得「${normDate}」）`);
+    ok(normDate.indexOf('沉默也是一种选项') >= 0, 'S20c ★normalize 保留正文（只剥离日期）');
+    ok(F.normalize('  2011/2/9 论坛  ') === '论坛', 'S20d ★normalize 处理斜杠日期与空白');
+    ok(F.normalize('2011年2月9日 归档') === '归档', 'S20e ★normalize 处理中文日期');
+
+    /* 四层判定（骨架期 marker 空 → T-hit 不可达） */
+    ok(F.classify('短').tier === 'U-0', 'S20f ★U-0：规范化后 <4 字 → 忽略');
+    ok(F.classify('随便聊聊今天天气').tier === 'U-2', 'S20g ★U-2：无关输入走普通聊天');
+    ok(F.classify('那个论坛的路线存档在哪里').tier === 'U-1',
+      'S20h ★U-1：含类词（论坛/路线/存档）→ 近场未命中');
+    const tHit = F.classify('沉默也是一种选项');
+    ok(tHit.tier === 'U-2' || tHit.tier === 'U-0',
+      'S20i ★骨架期 T-hit 不可达（marker 空 → 走 U-0/U-2，真别名等文策渊）');
+
+    /* {FRAG}：80 字截断 + …… + 日期剥离（AS-3） */
+    const fragText = F.fragText('2011-02-09 ' + '长'.repeat(100));
+    ok(fragText.indexOf('2011') < 0, 'S20j ★{FRAG} 渲染前也剥离日期（双点 X-2）');
+    ok(fragText.length <= 80 + 2 && fragText.endsWith('……'),
+      `S20k ★{FRAG} 80 字截断补「……」（实得 ${fragText.length} 字）`);
+    ok(F.fragText('a\nb\nc\nd') === 'a\nb\nc', 'S20l ★{FRAG} 最多保留 2 处换行');
+
+    /* U-1 节流：3 次 → 第 4 次降级 → 7 次静默 */
+    ok(F.u1Lines(1).length === 3 && F.u1Lines(2).length === 3,
+      'S20m ★U-1 前 3 次播完整三句');
+    ok(F.u1Lines(4)[0] === '……我还是读不出来。',
+      'S20n ★U-1 第 4 次起降级为单句');
+    ok(F.u1Lines(7).length === 0, 'S20o ★U-1 第 7 次起完全静默');
+
+    /* CF-3 · SC-029 idiolect 排除：命中输入不得进语料池（AS-5） */
+    const inputBefore = SD.State.inputs().length;
+    SD.Feed.resetSession();
+    /* 手工驱动一次 SC-029 的提交（经 Dialogue 内部通路） */
+    const sc029 = env.win.SD_DATA.dialogue_nodes.find((nn) => nn.id === 'SC-029');
+    ok(!!sc029 && !!SD.Dialogue.node('SC-029'),
+      'S20p ★CF-3 前置：SC-029 节点可达');
+    /* 走 submitFree 通路模拟：喂一段论坛味输入（含类词，U-1 命中） */
+    const oldGo = env.win.SD.Dialogue.go;
+    env.win.SD.Dialogue.go = function () {};          // 阻断推进，只测采集
+    SD.Dialogue.submitFree(sc029, sc029.free_input, '论坛里说，路线要存档');
+    env.win.SD.Dialogue.go = oldGo;
+    const inputsAfter = SD.State.inputs().length;
+    ok(inputsAfter === inputBefore,
+      `S20q ★CF-3 / AS-5：SC-029 的 U-1 命中输入未进 idiolect 语料池（${inputBefore} → ${inputsAfter}）`);
+
+    /* CF-3 · SD-068 b11 优先：b11 判定先于投喂（提交路径已按序） */
+    ok(sc029 && sc029.measure && sc029.measure.role === 'idiolect',
+      'S20r ★CF-3 数据：SC-029 承担 idiolect 采集（排除逻辑生效的前提）');
+
+    /* feed_hooks：SC-015 投喂窗口开、SC-005 排除（AS-6） */
+    ok(F.hookOf('SC-015') && F.hookOf('SC-015').max_len === 140,
+      'S20s ★UX-2：SC-015 投喂窗口 max_len 放宽 140（不改节点数据，FH-1）');
+    ok(F.hookOf('SC-005') === null && F.hookOf('SC-057') === null,
+      'S20t ★AS-6：SC-005 / SC-057 不在投喂窗口（命名 / 谜题通道唯一）');
+
     report();
   } finally {
     site.cleanup();

@@ -45,6 +45,8 @@ const PUBLISH_EXCLUDE_DIRS = [
   'promo',         // ⚠️ 封面源图，只进仓库不发布（0 元预算 / 图≤25）
   'design',        // 设计真源（当前在仓库外，防御性登记）
   'publish',       // 产物目录自身，防自包含
+  'tools',         // ⚠️ ARG-BUILD-12 哈希生成脚本（读 design/ 明文 → 纯 sha256），
+                   //    构建工具不进发布产物，也不参与地层巡检
 ];
 
 /* 永不进发布产物的文件模式（按 basename 匹配） */

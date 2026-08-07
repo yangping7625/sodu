@@ -54,6 +54,9 @@
     var nodes = (g.SD_DATA && g.SD_DATA.dialogue_nodes) || [];
     index = {}; order = [];
     nodes.forEach(function (n) { index[n.id] = n; order.push(n.id); });
+    /* ARG-BUILD-12 · U-1 / U-3 节流计数是会话内存（R2：无进度痕迹，
+       刷新即重置）。进页即清零。 */
+    try { if (SD.Feed && SD.Feed.resetSession) SD.Feed.resetSession(); } catch (e) {}
     return order.length;
   }
 
@@ -468,10 +471,8 @@
   }
 
   function openFreeInput(n, fi) {
-    var inp = R().freeInput(
-      { max_len: fi.max_len, placeholder: fi.placeholder || '' },
-      function (val) { submitFree(n, fi, val); }
-    );
+    var conf = feedInputConf(n, fi);
+    var inp = R().freeInput(conf, function (val) { submitFree(n, fi, val); });
     B().watchInput(inp, n.id);
     try { inp.focus({ preventScroll: true }); } catch (e) {}
   }
@@ -480,18 +481,58 @@
      此处【不】autofocus：移动端弹起键盘会把刚渲染的引导选项顶出可视区，
      等于又一次吞掉选项。要打字的玩家自己点输入框即可。 */
   function attachInlineInput(n, fi) {
-    var inp = R().freeInput(
-      { max_len: fi.max_len, placeholder: fi.placeholder || '', append: true },
-      function (val) { submitFree(n, fi, val); }
-    );
+    var conf = feedInputConf(n, fi);
+    conf.append = true;
+    var inp = R().freeInput(conf, function (val) { submitFree(n, fi, val); });
     B().watchInput(inp, n.id);
   }
 
+  /* ARG-BUILD-12 · UX-2 / UX-3（FH-1）：投喂窗口期 max_len 放宽到 140、
+     placeholder 由 feed_hooks 表驱动（UX-1）。不改节点数据 —— 引擎读表。
+     非投喂节点原样（fi.max_len 保持，如命名节点 24 不动）。 */
+  function feedInputConf(n, fi) {
+    var conf = { max_len: fi.max_len, placeholder: fi.placeholder || '' };
+    try {
+      if (SD.Feed) {
+        var hk = SD.Feed.hookOf(n.id);
+        if (hk) {
+          conf.max_len = (hk.max_len != null) ? hk.max_len : conf.max_len;
+          if (hk.placeholder) conf.placeholder = hk.placeholder;
+        }
+      }
+    } catch (e) { /* 静默：读表失败按节点原值 */ }
+    return conf;
+  }
+
   function submitFree(n, fi, val) {
-    B().closeProbe(n.id);
     var raw = String(val == null ? '' : val);
 
     if (fi.puzzle) return submitPuzzle(n, fi, raw);
+
+    /* ── ARG-BUILD-12 · 组2 投喂引擎（CF-3 执行顺序，见下方三处裁决）──
+       feed_hooks 外部表（FH-1：引擎读表，节点数据零改动）。SC-005/SC-057
+       明令排除（命名 / 谜题通道）。U-0/U-2 走既有 free_input.next 不变。
+       ⚠️ 先判 verdict 再关探针 —— SC-035 需要 verdict 决定是否把本次
+       输入耗时从 a1_probe 剔除（CF-3）。 */
+    var feedNode = null;
+    try { if (SD.Feed) feedNode = SD.Feed.hookOf(n.id); } catch (e) {}
+    var verdict = null;
+    if (feedNode) {
+      try { verdict = SD.Feed.classify(raw); } catch (e) { verdict = null; }
+    }
+    /* U-3 重复投喂计数：只计一次（同一标记第 n 次命中）。
+       首次=1、第 2 次=2、第 3 次起 ≥3（走 U-2 静默）。 */
+    var u3n = 0;
+    if (verdict && verdict.tier === 'T-hit' && SD.Feed && verdict.marker) {
+      try { u3n = SD.Feed.countU3(verdict.marker.key); } catch (e) { u3n = 0; }
+    }
+
+    /* ⚠️ CF-3 · SC-035（a1_probe）：投喂窗口期的输入耗时不计入 a1_probe；
+       若该节点发生 T-hit，a1_probe 取上一个探针的值（A-1 三级兜底不被
+       粘贴长文拉偏）。其它节点照常结算探针。 */
+    var isA1Probe = !!(n.measure && n.measure.role === 'a1_probe');
+    B().closeProbe(n.id, (isA1Probe && verdict && verdict.tier === 'T-hit')
+      ? { skipRecompute: true } : undefined);
 
     if (fi.capture === 'name_given') {
       var cleaned = I().clean(raw);
@@ -505,16 +546,96 @@
         S().flag('no_name_given', true);
       }
     } else {
-      S().pushInput(n.id, raw, fi.capture || 'free');
-      if (raw.trim()) R().playerEcho(raw.trim());
+      /* ⚠️ CF-3 · SC-029（idiolect）：命中的投喂输入【不得进入】语料池。
+         否则 {ECHO} 会变成"论坛的口音"而不是玩家的口音，
+         SN-083 / SD-057 的 A-2 / B-K2 两击当场作废。
+         顺序：投喂判定 → 若 T-hit 或 U-1，跳过 idiolect 采集；
+                若 U-0/U-2，正常采集。
+         ⚠️ U-3 第 3 次起「完全静默（走 U-2）」：不跳过 idiolect、
+         正常 echo —— 与普通聊天完全一致（FD-P2：喂错没有惩罚）。 */
+      var treatAsU2 = u3n >= 3;
+      var skipIdiolect = false;
+      if (!treatAsU2 && verdict && (verdict.tier === 'T-hit' || verdict.tier === 'U-1')) {
+        skipIdiolect = true;
+      }
+      if (!skipIdiolect) {
+        S().pushInput(n.id, raw, fi.capture || 'free');
+      }
+      if (raw.trim() && !skipIdiolect) {
+        R().playerEcho(raw.trim());
+      }
     }
     /* G-1 b11：SD-068（capture:'sd_g1_recall'）提交时判定「复述过她的话」，
-       命中则置 sd_b11_recall，驱动 SD-069/070 的 requires 对偶分支。 */
+       命中则置 sd_b11_recall，驱动 SD-069/070 的 requires 对偶分支。
+       ⚠️ CF-3 · SD-068：b11 判定优先于投喂判定 —— 论坛原文可能与她的
+       历史台词模糊命中，若先走投喂，b11 会被误置位。故 b11 先判；
+       （b11 模糊池排除 marker 别名 —— 骨架期 marker 为空，天然满足，
+        待真别名灌入时在 sd_behavior.checkRecall 内排除。） */
     if (fi.capture === 'sd_g1_recall') {
       try { B().checkRecall(raw); } catch (e) { /* 静默 */ }
     }
+
+    /* ── 投喂插播（T-hit / U-1 / U-3）──────────────────────────────
+       FM-1：链结构永不因投喂改变 —— 插播播完【必回原 next】。
+       插播机制复用 arc_entry 同族的通用能力：不为任何具体 ID 写分支。
+       FE-05：投喂反应播放中输入行已禁用（与既有 typing 期一致），
+       且不弹任何提示（R5：禁 toast）。 */
+    if (verdict && verdict.tier === 'T-hit' && SD.Feed && verdict.marker) {
+      /* U-3 重复投喂：第 2 次「这一段我读过了。」；第 3 次起完全静默（走 U-2）。
+         第 1 次（u3n===1）走正常 T-hit。 */
+      if (u3n >= 3) { applyFlags(n.set_flags); go(fi.next || n.next); return; }
+      if (u3n === 2) {
+        R().bubble('her', '这一段我读过了。', n.id + '.feed.u3');
+        applyFlags(n.set_flags); go(fi.next || n.next);
+        return;
+      }
+      /* 首次命中：插播 {FRAG} 引用块 + marker 反应（反应串骨架期为空）。
+         FM-3：首次命中 → 设备侧 记录/ 升格（sh_fm.js 由 SD 侧触发）。 */
+      if (verdict.frag) {
+        var fragEl = R().fragBlock(verdict.frag, n.id + '.feed.frag');
+        try { if (SD.Feed.fragHit) SD.Feed.fragHit(fragEl); } catch (e) {}
+      }
+      /* ⚠️ 引擎骨架期：marker.reaction 为空（真别名 + SF 反应等文策渊）。
+         此处保持通用跳回 —— 播完回原 next，链结构不变。 */
+      applyFlags(n.set_flags);
+      go(fi.next || n.next);
+      return;
+    }
+
+    if (verdict && verdict.tier === 'U-1' && SD.Feed) {
+      var usedU1 = SD.Feed.countU1();
+      var lines = SD.Feed.u1Lines(usedU1);
+      if (lines.length === 0) {
+        /* 第 7 次起完全静默（走 U-2），不插播 */
+        go(fi.next || n.next);
+        return;
+      }
+      /* U-1 三句：确认方向正确 —— 引导层最关键的一句（GD-4） */
+      playInterlude(lines, n.id + '.feed.u1', function () {
+        go(fi.next || n.next);
+      });
+      return;
+    }
+
     applyFlags(n.set_flags);
     go(fi.next || n.next);
+  }
+
+  /* 通用插播：按序吐出若干条 her 气泡，播完调用 done。
+     不为任何具体 ID 写分支 —— 与 arc_entry 同族的"通用跳转能力"。 */
+  function playInterlude(lines, baseId, done) {
+    if (!lines || !lines.length) { try { done(); } catch (e) {} return; }
+    var i = 0;
+    (function step() {
+      if (i >= lines.length) { try { done(); } catch (e) {} return; }
+      var text = lines[i++];
+      R().typingOn();
+      wait(900, false, function () {
+        R().typingOff();
+        R().bubble('her', text, baseId + '.' + i);
+        wait(i === lines.length ? 600 : 400, false, step);
+      });
+    })();
   }
 
   /* 投喂卡三选一 */
@@ -603,6 +724,8 @@
   SD.Dialogue = {
     init: init, start: start, go: go, node: node, audit: audit,
     interp: interp, tokens: tokens,
+    /* 测试面（前台零泄漏）：submitFree 供 smoke_main 直测 CF-3 采集顺序 */
+    submitFree: submitFree,
     current: function () { return current; },
     running: function () { return running; }
   };
