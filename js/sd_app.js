@@ -53,7 +53,49 @@
       mountSaveEntry();
     };
 
-    SD.Dialogue.start();
+    /* ARG-BUILD-12 · 组1 FR-B：素读窗口首开一行（CF-4）
+       ⚠️ 设计真源 §2.2 / §5.4：这一行的触发与时序【不依赖】win_state.sd
+       与 booted_at —— 由专用布尔 shell.framing_window_seen 决定。
+       · 桌面壳打开本窗口时：父层窗口 chrome 已渲染那一行（设备命名空间），
+         本页只需把 SS-001 延后 1.2s（等那行硬切消失后再播）。
+       · N1 直链裸开（无父层）：本页自己渲染同一行（设备等宽字、非她的气泡），
+         1.2s 硬切后播 SS-001。两种形态屏幕上一字不差。
+       · 已播过（framing_window_seen=true）→ 立即播，不再延后。 */
+    function bootDialogue() {
+      var shell = null;
+      try { shell = SD.State.get().shell; } catch (e) {}
+      var seen = !!(shell && shell.framing_window_seen);
+      if (seen) { SD.Dialogue.start(); return; }
+
+      /* 首次窗口打开：延后 1.2s。裸开时本页自己渲染那一行。 */
+      var naked = false;
+      try { naked = !(window.self && window.top && window.self !== window.top); } catch (e) { naked = true; }
+
+      if (naked) {
+        var line = document.createElement('div');
+        line.className = 'sd-winline';
+        line.setAttribute('data-sd-winline', '');
+        line.textContent = '上一次的会话没有结束。';
+        try { stream.insertBefore(line, stream.firstChild); } catch (e) {}
+        /* 裸开无父层可写 → 本页播过即置位（仍在 sudu_save_v1 内，SH-7 守）。
+           嵌入态不写：父层在 1.2s 播完后置位（sh_main.js showWindowLine）。 */
+        try {
+          var d = SD.State.get();
+          if (!d.shell) d.shell = {};
+          d.shell.framing_window_seen = true;
+          SD.State.commit();
+        } catch (e) {}
+      }
+      setTimeout(function () {
+        try {
+          var host = document.querySelector('[data-sd-winline]');
+          if (host && host.parentNode) host.parentNode.removeChild(host);
+        } catch (e) {}
+        SD.Dialogue.start();
+      }, 1200);
+    }
+
+    bootDialogue();
   });
 
   /* ── /save 常驻入口（ARG-BUILD-08） ────────────────────────────────

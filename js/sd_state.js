@@ -71,7 +71,13 @@
         last_app: null,
         win_state: {},
         icons_revealed: [],
-        fm_seen: []
+        fm_seen: [],
+        /* ARG-BUILD-12 · CF-4：背景 framing 专用布尔（与 booted_at /
+           win_state.sd 解耦）。FR-A 首启三行由桌面层渲染并置位；
+           FR-B 窗口一行由 /sd/ 读同一字段决定 1.2s 延后（N1 裸开时
+           /sd/ 自己渲染该行并置位）。仍在本键内，SH-7 守。 */
+        framing_seen: false,
+        framing_window_seen: false
       },
       apps: { qsw: {}, soda: {}, fm: {} },
 

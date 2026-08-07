@@ -62,6 +62,12 @@
     if (!sh.win_state || typeof sh.win_state !== 'object') sh.win_state = {};
     if (!(sh.icons_revealed instanceof Array)) sh.icons_revealed = [];
     if (!(sh.fm_seen instanceof Array)) sh.fm_seen = [];
+    /* ARG-BUILD-12 · CF-4（专用标志，与 booted_at / win_state.sd 解耦）：
+       首启三行与窗口一行的"是否已播过"专用布尔。绝不依赖 booted_at 的
+       "为空"语义 —— 那已经被首帧自动开素读 / last_app 回读占用。
+       同一存档键内，SH-7 守。 */
+    if (typeof sh.framing_seen !== 'boolean') sh.framing_seen = false;
+    if (typeof sh.framing_window_seen !== 'boolean') sh.framing_window_seen = false;
 
     if (!o.apps || typeof o.apps !== 'object') o.apps = {};
     if (!o.apps.qsw) o.apps.qsw = {};
@@ -140,6 +146,20 @@
   var panes = {};          // id → { el, frame }
   var cur = null;          // 当前【可见】的 app；同时只有一个
   var titleReq = 0;        // 本会话收到的 title 变更次数（SH-B3 的节拍源）
+
+  /* ARG-BUILD-12 · CF-4：首启三行 / 窗口一行的写入前快照。
+     在 ready() 最早分支（写 booted_at 之前、open('sd') 之前）取值，
+     与 booted_at / win_state.sd 完全解耦（专用布尔，SH-7 单键内）。 */
+  var framingBoot = { fresh: false, windowFresh: false };
+  var winLineShown = false;   // 本会话内 FR-B 行只渲染一次（防重开窗重复）
+
+  /* ── ARG-BUILD-12 · CF-4 专用标志（与 booted_at / win_state.sd 解耦）──
+     首启三行（FR-A）与窗口一行（FR-B）的"是否播过"专用布尔。
+     本会话内 FR-B 只允许渲染一次（winLineShown 局部兜底，防同会话重开窗重复）。 */
+  var winLineShown = false;
+
+  var FR_A_LINES = ['这台机器不是你的。', '它被打开过很多次。', '最后一次，没有关。'];
+  var FR_B_LINE = '上一次的会话没有结束。';
 
   function narrow() {
     try {
@@ -279,6 +299,10 @@
     if (narrow() && app.kind === 'frame') { go(app.url); return; }
     makePane(id);
     if (!panes[id]) return;
+    /* ARG-BUILD-12 · FR-B：素读窗口【首次打开】时，父层窗口 chrome 渲染
+       一行「上一次的会话没有结束。」，1.2s 硬切消失（播过即置位）。
+       只在第一次（windowFresh 快照）触发；重开窗由 winLineShown 挡住。 */
+    if (id === 'sd' && framingBoot.windowFresh) showWindowLine();
     show(id);
   }
 
@@ -331,6 +355,69 @@
         else sh.win_state[k] = (k === cur) ? 'open' : 'min';
       }
     });
+  }
+
+  /* ══ ARG-BUILD-12 · 组1 背景 framing（FR-A / FR-B）════════════════
+     两处都走 CF-4 的专用布尔（framing_seen / framing_window_seen），
+     与 booted_at / win_state.sd 解耦 —— 详见 ready() 最早分支的快照。
+
+     FR-A 首启三行：桌面主体渲染之前，占满视口，设备自己的等宽字。
+       退出 = 任意点击 / 任意按键 / 4.5s 自动，硬切（≤100ms opacity）。
+       R5：无进度条 / 百分比 / logo / 版本号 / 跳过按钮 / 缓动 / 音效。
+       文案逐字来自设计真源 §2.2 —— 玩家屏幕上三行字一字不差。 */
+  var FR_A_LINES = ['这台机器不是你的。', '它被打开过很多次。', '最后一次，没有关。'];
+  var FR_B_LINE = '上一次的会话没有结束。';
+
+  function showFraming(done) {
+    var ov = doc.createElement('div');
+    ov.className = 'sh-framing';
+    ov.setAttribute('data-sh-framing', '');
+    FR_A_LINES.forEach(function (t) {
+      var p = doc.createElement('p');
+      p.className = 'sh-framing__l';
+      p.textContent = t;
+      ov.appendChild(p);
+    });
+    (doc.body || doc.documentElement).appendChild(ov);
+
+    var fired = false;
+    function cut() {
+      if (fired) return;
+      fired = true;
+      try { doc.removeEventListener('click', cut, true); } catch (e) {}
+      try { doc.removeEventListener('keydown', cut, true); } catch (e) {}
+      ov.classList.add('sh-framing--off');       // ≤100ms opacity 硬切
+      setTimeout(function () {
+        if (ov.parentNode) ov.parentNode.removeChild(ov);
+        done();
+      }, 80);
+    }
+    /* 任意键 / 任意点击硬切（capture：桌面空白处零交互，但这里不点白屏 =
+       这台机器自己印的字，点一下就是"知道了"） */
+    try { doc.addEventListener('click', cut, true); } catch (e) {}
+    try { doc.addEventListener('keydown', cut, true); } catch (e) {}
+    setTimeout(cut, 4500);                        // 4.5s 自动硬切
+  }
+
+  /* FR-B 素读窗口首开一行：父层窗口 chrome 渲染（设备命名空间），
+     1.2s 后硬切消失，随后 /sd/ 内的 SS-001 正常播。
+     ⚠️ 不依赖 win_state.sd —— 只由本窗口【首次打开】驱动（CF-4）。
+     ⚠️ 与 /sd/ 的时序由【同一枚 framing_window_seen】协调：
+        · 本函数渲染期间【不置位】——/sd/ 在 iframe 内读到 false 才把
+          SS-001 延后 1.2s（否则它会提前播，与这一行撞车）。
+        · 1.2s 播完后【播过即置位】，此后 /sd/ 读到 true 不再延后。 */
+  function showWindowLine() {
+    if (!bodyEl || winLineShown) return;
+    winLineShown = true;
+    var line = doc.createElement('div');
+    line.className = 'sh-winline';
+    line.setAttribute('data-sh-winline', '');
+    line.textContent = FR_B_LINE;
+    bodyEl.appendChild(line);
+    setTimeout(function () {
+      if (line.parentNode) line.parentNode.removeChild(line);
+      try { patch(function (o) { o.shell.framing_window_seen = true; }); } catch (e) {}
+    }, 1200);
   }
 
   function seen(tag) {
@@ -480,14 +567,39 @@
 
     /* 首帧：第一次拿到这台机器时，素读是开着的（P-a）。
        ⚠️ 窄屏例外：那里"打开素读"= 真跳转，首帧就跳走等于把本机整个跳过去。
-          手机上第一屏就是这张列表 —— 这不是降级，是设备形态的一致表达。 */
+          手机上第一屏就是这张列表 —— 这不是降级，是设备形态的一致表达。
+
+       ARG-BUILD-12 · CF-4：FR-A / FR-B 的【写入前快照】必须在此处、在
+       patch 写 booted_at 之前、open('sd') 之前取 —— 这正是 first 的语义。
+       · first（首帧自动开素读 / last_app 回读）仍由 booted_at 驱动，不变。
+       · framingFresh / windowFresh 由专用布尔驱动，与 booted_at 解耦。 */
     var boot = read().shell;
     var first = !boot.booted_at;
-    patch(function (o) { if (!o.shell.booted_at) o.shell.booted_at = Date.now(); });
+    var framingFresh = !boot.framing_seen;
+    var windowFresh = !boot.framing_window_seen;
+    framingBoot = { fresh: framingFresh, windowFresh: windowFresh };
+    patch(function (o) {
+      if (!o.shell.booted_at) o.shell.booted_at = Date.now();
+      /* FR-A 播过即置位：本机侧无其它读者，决定即置位（防刷新重播）。
+         ⚠️ FR-B 的 framing_window_seen【不在此置位】——/sd/ 读同一字段
+         决定 SS-001 的 1.2s 延后；若这里先置 true，iframe 内 /sd/ 会读到
+         "已播过"而不再延后，窗口一行与 SS-001 就会撞车（CF-4 时序竞态）。
+         它由 showWindowLine 在 1.2s 播完后置位。 */
+      if (framingFresh) o.shell.framing_seen = true;
+    });
 
-    if (!narrow()) {
-      if (first) open('sd');
-      else if (boot.last_app && APPS[boot.last_app]) open(boot.last_app);
+    function afterFraming() {
+      if (!narrow()) {
+        if (first) open('sd');
+        else if (boot.last_app && APPS[boot.last_app]) open(boot.last_app);
+      }
+    }
+
+    if (framingFresh) {
+      /* FR-A 首启三行：占满视口，硬切后进桌面 + 素读自动开（P-a） */
+      showFraming(afterFraming);
+    } else {
+      afterFraming();
     }
   });
 

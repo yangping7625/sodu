@@ -37,7 +37,10 @@ function home(site, opts) {
     pagePath: site.page('index.html'),
     storage: true
   }, opts || {}));
-  env.runScripts();
+  /* settleMs 是 runScripts 的虚拟时钟窗口参数：
+     默认跑空（FR-A 4.5s 会自动硬切）；传 0 则停在首帧，让 FR-A 可断言。 */
+  env.runScripts(typeof opts === 'object' && opts && 'settleMs' in opts
+    ? { settleMs: opts.settleMs } : {});
   return env;
 }
 
@@ -377,6 +380,64 @@ function main() {
     const hitF = BANNED.filter((w) => finalTxt.includes(w));
     ok(hitF.length === 0, `H5 ★全程屏显禁词零命中（命中 ${hitF.length}${hitF.length ? '：' + hitF.join(', ') : ''}）`);
     ok((finalTxt.match(/(?:19|20)\d{2}/g) || []).length === 0, 'H6 ★全程屏显零绝对年份');
+
+    /* ══ I · 组1 背景 framing（FR-A 首启三行 / FR-B 窗口一行 · ARG-BUILD-12）══
+       CF-4：专用布尔 framing_seen / framing_window_seen，与 booted_at 解耦。
+       dom_shim 不加载 iframe，故 FR-B 的 1.2s 延后 / 裸开自渲染在 smoke_main 覆盖；
+       这里验父层 chrome 渲染 + 首启置位 + 二次不再出现。 */
+    const envFr = home(site, { settleMs: 0 });
+    const framing = envFr.doc.querySelector('[data-sh-framing]');
+    ok(!!framing, 'I1 ★FR-A 首次访问渲染首启三行（占满视口的设备屏）');
+    const framTxt = framing ? framing.textContent : '';
+    ok(framTxt.includes('这台机器不是你的。') &&
+       framTxt.includes('它被打开过很多次。') &&
+       framTxt.includes('最后一次，没有关。'),
+      'I2 ★FR-A 三行逐字（设计真源 §2.2）');
+    ok(framing && !/跳过|正在启动|进度|%|logo|版本/i.test(framTxt),
+      'I3 ★FR-A R5 禁令：无跳过按钮 / 进度 / logo / 版本号');
+    ok(framing && framing.className.indexOf('sh-framing') >= 0 &&
+       !framing.querySelector('button') && !framing.querySelector('img'),
+      'I4 ★FR-A 是纯文字设备屏：无按钮 / 无位图（CSS 级 R5 由 spec.js ⑮A 扫描）');
+
+    /* 任意键硬切 → 桌面 + 素读窗口自动开（P-a 不变） */
+    envFr.doc.dispatch('click');
+    envFr.clock.runFor(100);
+    ok(!envFr.doc.querySelector('[data-sh-framing]'),
+      'I5 ★FR-A 任意键硬切后从 DOM 移除');
+    ok(envFr.doc.querySelector('[data-sh-win]').getAttribute('data-open') === '1',
+      'I6 ★FR-A 退出后素读窗口自动打开（P-a 不变）');
+    const frSave = JSON.parse(envFr.localStorage.getItem('sudu_save_v1'));
+    ok(frSave.shell.framing_seen === true,
+      'I7 ★FR-A 播过即置位 framing_seen（CF-4 专用布尔，非 booted_at）');
+    ok(frSave.shell.booted_at != null,
+      'I8 ★booted_at 语义未变（首帧快照与 framing_seen 解耦，仍正常写入）');
+
+    /* 第二次访问：不再出现（已置位） */
+    const envFr2 = home(site, { seedStore: {
+      'sudu_save_v1': JSON.stringify({ v: 1, created_at: 1, updated_at: 2,
+        shell: { booted_at: 1000, framing_seen: true, framing_window_seen: true, win_state: {} } })
+    }, settleMs: 0 });
+    ok(!envFr2.doc.querySelector('[data-sh-framing]'),
+      'I9 ★FR-A 第二次访问不再出现');
+
+    /* FR-B 窗口一行：父层 chrome 渲染，1.2s 硬切消失；置位 framing_window_seen */
+    const envFrb = home(site, { settleMs: 0 });
+    envFrb.win.SH.Home.open('sd');
+    const winLine = envFrb.doc.querySelector('[data-sh-winline]');
+    ok(!!winLine, 'I10 ★FR-B 素读窗口首开渲染窗口一行（父层 chrome）');
+    ok(winLine && winLine.textContent === '上一次的会话没有结束。',
+      `I11 ★FR-B 文案逐字（实得「${winLine && winLine.textContent}」）`);
+    const winTxt = envFrb.doc.body.textContent;
+    ok(!winTxt.includes('dialogue_nodes') && !winTxt.includes('SS-001'),
+      'I12 ★FR-B 不进 dialogue_nodes / 不渲染节点 ID（设备命名空间）');
+    envFrb.clock.runFor(1300);
+    ok(!envFrb.doc.querySelector('[data-sh-winline]'),
+      'I13 ★FR-B 1.2s 后硬切消失');
+    const frbSave = JSON.parse(envFrb.localStorage.getItem('sudu_save_v1'));
+    ok(frbSave.shell.framing_window_seen === true,
+      'I14 ★FR-B 播过即置位 framing_window_seen');
+    ok(frbSave.shell.win_state.sd === 'open',
+      'I15 ★win_state.sd 语义未变（FR-B 判定不依赖它，它照常记录窗口态）');
 
     report();
   } finally {

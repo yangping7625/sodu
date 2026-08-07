@@ -1204,6 +1204,50 @@ function checkParsable(files) {
   if (!bad) note(`JS 可解析性：${js.length} 个投产脚本全部通过解析器（静态断言的地基）`);
 }
 
+/* ── (F) CF-4 / AS-9：FR-A 首启三行 + FR-B 窗口一行 的专用标志 ──────
+   ARG-BUILD-12 组1 的硬约束：
+     · 新增布尔 framing_seen / framing_window_seen 落在 sudu_save_v1.shell
+       （不新增 localStorage 键，SH-7）
+     · FR-A/FR-B 判定【不依赖】booted_at 的"为空"语义 / win_state.sd 的
+       "未 open"语义（CF-4：BUILD-11 首帧已先写 booted_at 再开 iframe，
+       复用那些语义会对新玩家永不触发）
+     · 两处文案逐字来自设计真源 §2.2 —— 玩家屏幕上三行字一字不差       */
+function checkShellFraming() {
+  const main = readIf('sh_main.js');
+  if (main === null) { note('CF-4 framing 巡检：sh_main.js 不存在，优雅跳过'); return; }
+  const src = stripJs(main);
+
+  /* ① 专用布尔必须存在（宿主 fill() 声明） */
+  if (!/framing_seen\b/.test(src)) fail('[AS-9] sh_main.js 未声明 framing_seen');
+  if (!/framing_window_seen\b/.test(src)) fail('[AS-9] sh_main.js 未声明 framing_window_seen');
+
+  /* ② FR-A 判定必须用 framing_seen（写入前快照），不得用 booted_at 为空 */
+  if (!/framingFresh\s*=\s*!boot\.framing_seen/.test(src) &&
+      !/framingFresh\s*=\s*!boot\.framing_seen\b/.test(src)) {
+    fail('[AS-9] FR-A 判定未用 framing_seen 写入前快照（CF-4 解耦要求）');
+  }
+  if (!/windowFresh\s*=\s*!boot\.framing_window_seen/.test(src) &&
+      !/windowFresh\s*=\s*!boot\.framing_window_seen\b/.test(src)) {
+    fail('[AS-9] FR-B 判定未用 framing_window_seen 写入前快照（CF-4 解耦要求）');
+  }
+
+  /* ③ 文案逐字（FR-A 三行 + FR-B 一行，设计真源 §2.2） */
+  const FR_A = ['这台机器不是你的。', '它被打开过很多次。', '最后一次，没有关。'];
+  FR_A.forEach(function (t) {
+    if (src.indexOf(t) < 0) fail('[AS-9] FR-A 文案缺失或改字：「' + t + '」（设计真源 §2.2 逐字）');
+  });
+  if (src.indexOf('上一次的会话没有结束。') < 0) {
+    fail('[AS-9] FR-B 文案缺失或改字：「上一次的会话没有结束。」（设计真源 §2.2 逐字）');
+  }
+
+  /* ④ app 侧 /sd/ 同样声明两枚布尔（sd_state.js blank()） */
+  const st = readIf('js/sd_state.js');
+  if (st !== null && (!/framing_seen\b/.test(st) || !/framing_window_seen\b/.test(st))) {
+    fail('[AS-9] js/sd_state.js 未声明 framing_seen / framing_window_seen（/sd/ 侧读同一字段）');
+  }
+  note('CF-4 framing 巡检：framing_seen / framing_window_seen 已声明并与 booted_at / win_state.sd 解耦；FR-A/FR-B 文案逐字');
+}
+
 /* ── 主流程 ──────────────────────────────────────────────────────────── */
 function main() {
   const files = [];
@@ -1228,6 +1272,7 @@ function main() {
   checkShellIsolation(files);           // ⑮B X-5 裸开判据 + BR-3 握手禁令
   checkShellHome();                     // ⑮C 素读入口恒可见
   checkShellBridge();                   // ⑮D SH-6 / X-9 / BR-2 / BR-4 / SH-7
+  checkShellFraming();                  // ARG-BUILD-12 · AS-9 CF-4 framing 专用标志
 
   if (!SD_DATA) { fail('无法加载 window.SD_DATA（data/sd_slice.js）'); }
   else {

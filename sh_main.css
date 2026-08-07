@@ -135,6 +135,27 @@ body[data-sh="home"] { overflow: hidden; }
 .sh-row--up { border-bottom: var(--sh-hair); padding: 4px 12px; }
 .sh-frame--sub { position: absolute; left: 0; top: 28px; right: 0; bottom: 0; width: 100%; height: auto; }
 
+/* ── ARG-BUILD-12 · FR-A 首启三行（CF-4 专用标志驱动）───────────────
+   不是 splash / intro / 过场 —— 是这台机器自己印在屏幕上的三行字。
+   R5 禁令：无进度条 / 百分比 / logo / 版本号 / 跳过按钮 / 缓动 / 音效。
+   唯一允许的动效是 ≤100ms opacity 硬切（设备语言）。              */
+.sh-framing {
+  position: fixed; left: 0; top: 0; width: 100%; height: 100%;
+  z-index: 40; background: var(--sh-paper); color: var(--sh-ink);
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 24px;
+  transition: opacity 80ms linear;
+}
+.sh-framing--off { opacity: 0; }
+.sh-framing__l { margin: 0 0 18px 0; font-size: 18px; line-height: 1.5; }
+
+/* FR-B 窗口一行：父层窗口 chrome 渲染（设备命名空间，非 /sd/ 内） */
+.sh-winline {
+  position: absolute; left: 0; top: 0; right: 0;
+  padding: 6px 8px; font-size: 12px; color: var(--sh-dim);
+  background: var(--sh-paper); z-index: 5;
+}
+
 /* ── 时钟（CL-1：只有 HH:MM，永不显示日期 / 星期 / 年份）─────────────── */
 .sh-clock {
   position: fixed; right: 14px; bottom: 10px; z-index: 12;
