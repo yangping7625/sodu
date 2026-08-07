@@ -196,7 +196,88 @@ function main() {
       ok(c.win.SD.State.persistent() === false, 'C3 持久化探测正确转内存态');
       ok(c.doc.getElementById('sd-flags').childNodes.length > 0, 'C4 无痕模式仍渲染 FLAG 表（不白屏）');
       ok(c.doc.body.textContent.includes('本站为虚构作品的一部分'), 'C5 无痕模式页脚声明照常渲染');
+      ok(!!c.doc.querySelector('#sd-reset'), 'C6 无痕模式仍挂出清档按钮（不因存储不可用而消失）');
     }
+
+    /* ══ 场景 D：清空存档 / 重玩（ARG-BUILD-08） ═════════════════════
+       核心不是「能清」，而是「不会被误清」——
+       故按真实点击链路逐步验证：首点只出确认、取消可回退、
+       只有第二次显式确认才真正落盘清空。               */
+    const d = createEnv({
+      siteRoot: site.siteRoot, pagePath: site.page('save.html'),
+      storage: true, seedStore: carried.store
+    });
+    d.runScripts({ settleMs: 1000 });
+
+    const KEY = d.win.SD.State.KEY;
+    const readSave = () => {
+      try { return JSON.parse(d.localStorage.getItem(KEY)); } catch (e) { return null; }
+    };
+
+    ok(readSave() && readSave().name_given === '阿岩',
+      'D0 前置：存档里有真实痕迹（name_given = 阿岩）');
+
+    const rBtn = d.doc.querySelector('#sd-reset');
+    ok(!!rBtn, 'D1 ★存档页挂出「清空存档 / 重玩」按钮');
+    ok(rBtn && rBtn.textContent.includes('清空存档'), 'D2 按钮文案含「清空存档」');
+    ok(rBtn && rBtn.getAttribute('type') === 'button',
+      'D3 按钮 type=button（不误提交谜题表单）');
+
+    const back = d.doc.querySelector('.sd-ctl__back');
+    ok(!!back, 'D4 存档页提供「回到对话」链接');
+    ok(back && back.getAttribute('href') === 'index.html',
+      `D5 返回链接为相对路径 index.html（实得「${back && back.getAttribute('href')}」）`);
+    ok(back && !back.getAttribute('href').startsWith('/'),
+      'D6 返回链接非根绝对路径（红线⑨）');
+
+    /* 第一步：只出确认，绝不动存档 */
+    rBtn.dispatch('click');
+    ok(!!d.doc.querySelector('#sd-reset-ask'), 'D7 ★首次点击 → 弹出二次确认');
+    ok(!d.doc.querySelector('#sd-reset'), 'D8 确认态下原按钮撤下（连点同一坐标不会误清）');
+    ok(readSave() && readSave().name_given === '阿岩',
+      'D9 ★★首次点击【不清档】—— 误触防护成立');
+
+    /* 第二步：取消可回退 */
+    d.doc.querySelector('#sd-reset-no').dispatch('click');
+    ok(!d.doc.querySelector('#sd-reset-ask'), 'D10 取消 → 确认行移除');
+    ok(!!d.doc.querySelector('#sd-reset'), 'D11 取消 → 按钮复位，可再来一次');
+    ok(readSave() && readSave().name_given === '阿岩', 'D12 ★取消不清档');
+
+    /* 第三步：显式确认 → 真清 */
+    d.doc.querySelector('#sd-reset').dispatch('click');
+    d.doc.querySelector('#sd-reset-yes').dispatch('click');
+
+    const after = readSave();
+    ok(!!after, 'D13 清空后单键仍在（写入空档，而非删键 —— 与 reset() 语义一致）');
+    ok(after && after.name_given === null, 'D14 ★★确认后 name_given 归空');
+    ok(after && after.feed_cover && after.feed_cover.fed.length === 0,
+      'D15 ★★投喂记录清空');
+    ok(after && Object.keys(after.read_flags || {}).length === 0,
+      'D16 ★★已读记录清空');
+    ok(after && (after.horror_spent.A.length === 0 && after.horror_spent.B.length === 0),
+      'D17 ★★恐怖预算记账清空（重玩能重新吓）');
+    ok(after && after.save_table_state.revealed.length === 0,
+      'D18 ★★谜题揭示状态清空');
+    ok(after && after.v === d.win.SD.State.SCHEMA,
+      'D19 清空后仍是合法 schema（下次 load 不触发丢弃重建）');
+    ok(d.win.SD.State.hasFlag('save_offered') === false,
+      'D20 ★内存态同步失忆（save_offered 已不在）');
+
+    const say = d.doc.querySelector('#sd-reset-say');
+    ok(say && say.textContent.includes('存档已清空'),
+      `D21 ★给出明确反馈（实得「${say && say.textContent}」）`);
+    ok(say && say.textContent.includes('刷新'), 'D22 反馈提示刷新后从头开始');
+    ok(!d.doc.body.textContent.includes('我在看你'), 'D23 TW-2：清档流程全程零明文谜底');
+
+    /* 幂等：重复装配不得长出第二个清档按钮（误点风险 + 视觉重影） */
+    const d2 = createEnv({
+      siteRoot: site.siteRoot, pagePath: site.page('save.html'),
+      storage: true, seedStore: carried.store
+    });
+    d2.runScripts({ settleMs: 500 });
+    d2.doc.dispatch('DOMContentLoaded');            // 再触发一次装配
+    ok(d2.doc.querySelectorAll('#sd-reset').length === 1,
+      `D24 ★重复装配幂等：清档按钮恒为 1 个（实得 ${d2.doc.querySelectorAll('#sd-reset').length}）`);
 
     report();
   } finally {

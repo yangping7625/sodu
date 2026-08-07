@@ -10,6 +10,7 @@
      L2-b  被抹黑行 FLAG_█████ → 解开后 FLAG_WATCHING = TRUE
      E6    不经对话直访的降级行为（表只渲染已产生的行 · 不出现输入框）
      TW-2  本页任何位置不得渲染明文谜底
+     CTL   安全操作区（ARG-BUILD-08）：清空存档 / 重玩 —— 复用 SD.State.reset()
    ========================================================================== */
 (function (g) {
   'use strict';
@@ -41,6 +42,7 @@
     renderRows(tbl, conf, invited);
     renderHidden(conf);
     renderComment(conf);
+    mountReset();
 
     if (!invited) {
       var note = document.querySelector('[data-sd-early]');
@@ -203,6 +205,118 @@
     if (!conf.html_comment) return;
     try {
       document.body.appendChild(document.createComment(' ' + conf.html_comment + ' '));
+    } catch (e) {}
+  }
+
+  /* ── CTL：清空存档 / 重玩（ARG-BUILD-08） ──────────────────────────
+     清档逻辑【复用 SD.State.reset()】（E8 完全失忆：mem 重置 + 会话态重置
+     + spentAtLoad 快照同步清空 + 单键落盘），本文件不另造一份，
+     以免将来 blank() 加字段时两处失配。
+
+     二次确认走【页内确认行】而非原生 confirm()：
+       ① 原生弹层是浏览器 chrome，会把「作品」读成「产品」（R5）；
+       ② 页内确认行在无头环境可被真实点击驱动，测试能覆盖到清档全链路。
+     误触防护由「两次独立点击 + 中间换了按钮位置和文案」保证。
+
+     R2：本区不显示任何进度 / 完成度 / 计数 —— 只有一个门和一句反馈。 */
+  function mountReset() {
+    var host = document.querySelector('[data-sd-ctl]');
+    if (!host) return;
+    /* 幂等：装配只做一次。浏览器里 DOMContentLoaded 只发一次，但 ready()
+       在 readyState 非 loading 时会【立即】执行回调 —— 将来若有人再调一次
+       装配（或热重载），这里必须不长出第二个清档按钮。 */
+    if (host.querySelector('.sd-ctl__box')) return;
+
+    var box = document.createElement('div');
+    box.className = 'sd-ctl__box';
+
+    var say = document.createElement('p');
+    say.className = 'sd-ctl__say';
+    say.id = 'sd-reset-say';
+
+    var btn = document.createElement('button');
+    btn.className = 'sd-ctl__btn';
+    btn.id = 'sd-reset';
+    /* 用 setAttribute 而非 .type= ：裸 <button> 默认 type=submit，
+       一旦将来这块被挪进任何 <form>（本页确实有谜题表单）就会变成提交键。
+       写成属性，DOM 里看得见，也不依赖属性反射。 */
+    btn.setAttribute('type', 'button');
+    btn.textContent = '清空存档 / 重玩';
+
+    box.appendChild(btn);
+    host.appendChild(box);
+    host.appendChild(say);
+
+    btn.addEventListener('click', function () { ask(box, btn, say); });
+  }
+
+  /* 第二步：把单个按钮换成「确认 / 取消」两枚 —— 位置与文案都变了，
+     连点两次同一处坐标不会误清。 */
+  function ask(box, btn, say) {
+    if (box.querySelector('#sd-reset-ask')) return;      // 幂等：已在确认态
+    detach(btn);
+    say.textContent = '';
+
+    var row = document.createElement('div');
+    row.className = 'sd-ctl__ask';
+    row.id = 'sd-reset-ask';
+
+    var q = document.createElement('span');
+    q.className = 'sd-ctl__q';
+    q.textContent = '清空后不可恢复。确定吗？';
+
+    var yes = document.createElement('button');
+    yes.className = 'sd-ctl__btn sd-ctl__btn--go';
+    yes.id = 'sd-reset-yes';
+    yes.setAttribute('type', 'button');
+    yes.textContent = '确认清空';
+
+    var no = document.createElement('button');
+    no.className = 'sd-ctl__btn sd-ctl__btn--off';
+    no.id = 'sd-reset-no';
+    no.setAttribute('type', 'button');
+    no.textContent = '取消';
+
+    row.appendChild(q); row.appendChild(yes); row.appendChild(no);
+    box.appendChild(row);
+
+    no.addEventListener('click', function () {
+      detach(row);
+      box.appendChild(btn);                              // 复位，可再来一次
+    });
+
+    yes.addEventListener('click', function () {
+      detach(row);
+      doReset(say);
+    });
+  }
+
+  /* 第三步：真正清档 —— 唯一写入口是 SD.State.reset() */
+  function doReset(say) {
+    var okDone = true;
+    try { S().reset(); } catch (e) { okDone = false; }
+
+    say.textContent = okDone
+      ? '存档已清空。刷新后从头开始。'
+      : '清空失败：这台设备不让我写东西。';
+    say.className = 'sd-ctl__say sd-ctl__say--done';
+
+    if (!okDone) return;
+    /* 刷新是「清干净了」最诚实的证据：回来时表是空的。
+       留 900ms 让上面那句话被读到，再刷。无 reload 的环境（file:// 壳、
+       无头测试）静默跳过，反馈文案已经到位，不影响清档本身。 */
+    schedule(function () { reload(); }, 900);
+  }
+
+  function detach(n) {
+    try { if (n && n.parentNode) n.parentNode.removeChild(n); } catch (e) {}
+  }
+  function schedule(fn, ms) {
+    try { g.setTimeout(fn, ms); } catch (e) { fn(); }
+  }
+  function reload() {
+    try {
+      if (g.location && typeof g.location.reload === 'function') g.location.reload();
     } catch (e) {}
   }
 

@@ -299,6 +299,27 @@ body:has(.sd-cards) .sd-clock {
   }
 }
 
+/* ── /save 常驻入口（ARG-BUILD-08） ───────────────────────────────────
+   在软倒计时（10px / --sd-faint）与页脚声明（10px / --sd-dim）之间，
+   刻意取两者中间的一档：11px，比声明轻、比倒计时可点。
+   点线下划线沿用存档页的语法，暗示「这行通向那张表」。
+   容器为空时（她还没递出存档）不占任何高度 —— :empty 收掉外边距。 */
+.sd-ret {
+  margin: 2px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.sd-ret:empty { margin: 0; }
+.sd-ret__a {
+  color: var(--sd-faint);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--sd-line);
+  padding-bottom: 1px;
+  letter-spacing: .02em;
+}
+.sd-ret__a:hover,
+.sd-ret__a:focus-visible { color: var(--sd-dim); }
+
 /* ── PO-IX-19 · 全站唯一移动断点（430px 覆盖至 iPhone Pro Max 竖屏；
       桌面由 .sd-wrap 的 max-width:560px 处理） ───────────────────────── */
 @media (max-width: 430px) {

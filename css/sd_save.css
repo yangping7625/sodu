@@ -123,3 +123,73 @@
   color: var(--sd-dim);
   word-break: break-word;
 }
+
+/* ── CTL：安全操作区（清空存档 / 回到对话 · ARG-BUILD-08） ────────────
+   刻意做成全页最安静的一块：无边框盒、无填充色块、无强调色。
+   它与 .sd-puzzle（白底 + 描边 + 深色实心按钮）形成分工 ——
+   谜题区是「要你动脑的地方」，本区是「你随时能退出去的地方」，
+   两者绝不长得像，免得玩家把清档当成解谜的一步（R2 / R5）。 */
+.sd-ctl {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 26px 0 0;
+  padding-top: 14px;
+  border-top: 1px dotted var(--sd-line);
+  font-family: var(--sd-mono);
+}
+.sd-ctl__back {
+  font-size: 12px;
+  color: var(--sd-dim);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--sd-line);
+  padding-bottom: 1px;
+}
+.sd-ctl__back:hover,
+.sd-ctl__back:focus-visible { color: var(--sd-fg); }
+
+.sd-ctl__box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 幽灵按钮：描边而非实心 —— 破坏性操作不该是页面上最显眼的东西 */
+.sd-ctl__btn {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border: 1px solid var(--sd-line);
+  background: transparent;
+  color: var(--sd-dim);
+  font-family: var(--sd-mono);
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.sd-ctl__btn:hover,
+.sd-ctl__btn:focus-visible { border-color: var(--sd-dim); color: var(--sd-fg); }
+
+.sd-ctl__ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.sd-ctl__q {
+  font-size: 12px;
+  color: var(--sd-dim);
+  white-space: normal;
+}
+/* 确认键比默认态实一点点，但仍不用红 —— 单色基调不为一个设置项破例 */
+.sd-ctl__btn--go { border-color: var(--sd-dim); color: var(--sd-fg); }
+.sd-ctl__btn--off { color: var(--sd-faint); }
+
+.sd-ctl__say {
+  margin: 0;
+  min-height: 1em;
+  font-size: 12px;
+  color: var(--sd-dim);
+}
+.sd-ctl__say--done { color: var(--sd-fg); }

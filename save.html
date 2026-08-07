@@ -26,6 +26,14 @@
     <!-- L1-b：透明文本，长按全选可见（手机可达线索之二） -->
     <span class="sd-hidden-host" data-sd-hidden></span>
 
+    <!-- 安全操作区（ARG-BUILD-08）：清空存档 / 回到对话。
+         这里【不是恐怖区】——读起来要像设置项，不像剧情，故用最淡的一档灰。
+         返回链接静态写死：无 JS 也走得回去；清档按钮由 sd_savepage.js 注入，
+         无 JS 时干脆不出现，不留一个按不动的死按钮。 -->
+    <section class="sd-ctl" data-sd-ctl>
+      <a class="sd-ctl__back" href="index.html">← 回到对话</a>
+    </section>
+
     <footer class="sd-foot" data-sd-footer></footer>
   </div>
 

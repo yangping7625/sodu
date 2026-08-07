@@ -513,6 +513,39 @@ function main() {
     ok(endingCareful === 'E-true',
       'S17d ★认真读 + 回访 + 不越界 → E-true（KD-03：真结局要求有分寸）');
 
+    /* ── S18 ★ARG-BUILD-08：/save 常驻入口（受邀才出现） ────────────────
+       这条守的是 N3：入口不是导航条，是「她递出存档之后没关的门」。
+       故必须双向验证 —— 没被邀请前【不存在】，被邀请后【跨页存活】。
+       清档按钮本体在存档页，验证见 smoke_save.js 场景 D。            */
+    const envFresh = createEnv({
+      siteRoot: site.siteRoot, pagePath: site.page('index.html'), storage: true
+    });
+    envFresh.runScripts({ settleMs: 0 });          // 只装配，不驱动对话
+    const retFresh = envFresh.doc.querySelector('[data-sd-ret]');
+    ok(!!retFresh, 'S18a 常驻入口容器存在于 index.html');
+    ok(!envFresh.doc.querySelector('.sd-ret__a'),
+      'S18b ★未被邀请 → 不渲染 /save 入口（N3：不做常驻导航）');
+    ok((retFresh ? retFresh.textContent : 'x') === '',
+      'S18c 未被邀请时容器为空（:empty 收边距，不占版面）');
+
+    /* 携带「已被邀请」的真实存档重开一页 —— 模拟同一浏览器下次进来 */
+    const envInvited = createEnv({
+      siteRoot: site.siteRoot, pagePath: site.page('index.html'),
+      storage: true, seedStore: env.localStorage._dump()
+    });
+    envInvited.runScripts({ settleMs: 0 });
+    const retA = envInvited.doc.querySelector('.sd-ret__a');
+    ok(!!retA, 'S18d ★已被邀请 → 重开页面时 /save 入口常驻（跨会话到达）');
+    if (retA) {
+      const rHref = retA.getAttribute('href');
+      ok(rHref === 'save.html', `S18e 入口 href = "${rHref}"（相对路径）`);
+      ok(!rHref.startsWith('/'), 'S18f 入口 href 非根绝对路径（红线⑨）');
+    }
+    /* R2：入口只能是一扇门，不许夹带进度 / 计数 / 完成度 */
+    const retTxt = envInvited.doc.querySelector('[data-sd-ret]').textContent;
+    ok(!/\d+\s*\/\s*\d+|%|进度|完成|成就/.test(retTxt),
+      `S18g ★R2 入口不含任何进度/计数/成就字样（实得「${retTxt}」）`);
+
     report();
   } finally {
     site.cleanup();
