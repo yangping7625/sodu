@@ -60,7 +60,11 @@
           id: 'F-A',
           title: '好感度系统详解',
           source_site: '汽水屋',
-          source_uid: 'ID:tsubame_02',
+          /* ARG-BUILD-12 · 组6（D-G1R-02 已拍板）：CF-1 出处 ID 修正。
+             tsubame_02 → 苏打志：他就是把全部 flag 整理成表格的人（1024-1 楼）。
+             ⚠️ title / excerpt / source_date / route_view 一字不动（SH-0）。
+             X-1：三专名与 /qsw/ 论坛署名逐字一致（苏打志 / 北窗 / 闲客）。 */
+          source_uid: '苏打志',
           source_date: '2011-06-14',            // 保留不渲染
           route_view: 'AFFECTION',
           teaches: ['quantify', 'decay'],
@@ -70,7 +74,8 @@
           id: 'F-B',
           title: '分支与锁路线',
           source_site: '汽水屋',
-          source_uid: 'ID:kohaku',
+          /* kohaku → 北窗：他补 C 线触发条件（1024-7 楼）、做 47 楼三状态实测（1187-47 楼）。 */
+          source_uid: '北窗',
           source_date: '2011-07-02',            // 保留不渲染
           route_view: 'BRANCH',
           teaches: ['lock_route', 'we_pronoun'],
@@ -80,7 +85,11 @@
           id: 'F-C',
           title: '真结局达成条件',
           source_site: '汽水屋',
-          source_uid: 'ID:nagi_1101',
+          /* nagi_1101 → 闲客：唯一谈真结局条件的人（1187-10/20/32/43 楼），
+             且「真结局不存盘」= F-C excerpt「读过档的人，拿不到真结局」同一口径。
+             ⚠️ F-C = 闲客 = 前主人（S14 已拍板）：玩家第 1 分 30 秒亲手喂给
+             她的那篇，本来就是前主人写的。SN-045/046 语义翻倍，零改字。 */
+          source_uid: '闲客',
           source_date: '2011-09-28',            // 保留不渲染
           route_view: 'TRUE_END',
           teaches: ['hidden_cond', 'no_reload'],

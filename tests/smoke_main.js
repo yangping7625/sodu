@@ -173,7 +173,12 @@ function main() {
 
     ok(srcLines.length === 3, `S4a 投喂卡 3 张（实得 ${srcLines.length}）`);
     ok(srcLines.every((s) => s.includes('汽水屋')), 'S4b 出处行含站名「汽水屋」(S6)');
-    ok(srcLines.every((s) => /ID:/.test(s)), 'S4c 出处行含楼主 ID');
+    /* ARG-BUILD-12 · 组6（D-G1R-02）：CF-1 出处 ID 已修 —— 三张卡的楼主
+       是论坛真实 ID（苏打志 / 北窗 / 闲客），不再是 ID:tsubame_02 这类
+       不存在的账号。X-1：与 /qsw/ 论坛署名逐字一致。 */
+    const realUids = ['苏打志', '北窗', '闲客'];
+    ok(srcLines.every((s) => realUids.some((n) => s.includes(n))),
+      'S4c ★组6 出处行含论坛真实楼主（苏打志/北窗/闲客，CF-1 已修）');
     const dateHit = srcLines.filter((s) => /\d{4}-\d{2}-\d{2}|20\d{2}/.test(s));
     ok(dateHit.length === 0,
       `S4d ★X-2 出处行不含绝对历史日期（命中 ${dateHit.length}${dateHit.length ? '：' + dateHit.join(' | ') : ''}）`);

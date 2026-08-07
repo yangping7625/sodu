@@ -1258,6 +1258,51 @@ function checkShellFraming() {
   note('CF-4 framing 巡检：framing_seen / framing_window_seen 已声明并与 booted_at / win_state.sd 解耦；FR-A/FR-B 文案逐字');
 }
 
+/* ── (G) 组6 / X-1 巡检：投喂卡出处 ID 与论坛署名逐字一致（ARG-BUILD-12）──
+   D-G1R-02 已拍板：三张卡的 source_uid 从虚构 ID（ID:tsubame_02 等）
+   改为论坛真实楼主（苏打志 / 北窗 / 闲客）。X-1 要求跨页身份一致 ——
+   /sd/ 的出处行与 /qsw/ 的署名必须是同一串字。                        */
+function checkFeedSourceX1(SD_DATA) {
+  const cat = ((SD_DATA && SD_DATA.feed_cover) || {}).catalog || [];
+  const uids = cat.map(function (c) { return c.source_uid; }).filter(Boolean);
+
+  /* ① 三张卡必须恰好是这三个楼主（顺序与 /qsw/ 无关，集合比对） */
+  const want = ['苏打志', '北窗', '闲客'];
+  const got = uids.slice().sort().join(',');
+  const expected = want.slice().sort().join(',');
+  if (got !== expected) {
+    fail(`[X-1 组6] feed_cover.catalog 的 source_uid 应为 ${expected}（实得 ${got || '空'}）`);
+    return;
+  }
+
+  /* ② 每个专名必须在 /qsw/ 论坛署名中出现（X-1 跨页身份一致） */
+  want.forEach(function (n) {
+    const files = walkQsw();
+    const hit = files.some(function (f) {
+      return fs.readFileSync(f, 'utf8').indexOf(n) >= 0;
+    });
+    if (!hit) fail(`[X-1 组6] 专名「${n}」未在 /qsw/ 论坛署名中出现 —— 出处行与论坛身份不一致`);
+  });
+  note('X-1 组6 巡检：source_uid = 苏打志/北窗/闲客，与 /qsw/ 论坛署名逐字一致');
+}
+
+/* 收集 qsw/ 下的部署文件（html/txt，脚本与样式里也可能有署名但主要是屏显面） */
+function walkQsw() {
+  const dir = path.join(ROOT, 'qsw');
+  if (!fs.existsSync(dir)) return [];
+  const out = [];
+  (function rec(d) {
+    for (const name of fs.readdirSync(d)) {
+      const full = path.join(d, name);
+      const st = fs.statSync(full);
+      if (st.isDirectory()) { rec(full); continue; }
+      const ext = path.extname(name).toLowerCase();
+      if (ext === '.html' || ext === '.txt') out.push(full);
+    }
+  })(dir);
+  return out;
+}
+
 /* ── 主流程 ──────────────────────────────────────────────────────────── */
 function main() {
   const files = [];
@@ -1293,6 +1338,7 @@ function main() {
     checkNodes(SD_DATA);                       // §9 节点存在性 + 字段 + 明文纪律 + X-2
     checkDualWriteNotice(SD_DATA);             // DX-02 双写点（404.html ↔ footer_notice）
     checkHash(SD_DATA, sandbox);
+    checkFeedSourceX1(SD_DATA);                // ARG-BUILD-12 · 组6 X-1 出处 ID 巡检
   }
 
   /* 正 rename 自检：部署产物中至少应出现 sd_/sudu_/soda_/qsw_ 之一 */
