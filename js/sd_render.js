@@ -80,6 +80,32 @@
     return n;
   }
 
+  /* ── V-R1 第三类视觉物：引用块（{FRAG} 的容器 · ARG-BUILD-12）────────
+     既不是她的气泡，也不是你的气泡 —— 是"从别处来的那段文字"。
+     · 无气泡、无圆角、无底色
+     · 左侧 1px 竖线（全站唯一一处竖线）
+     · 字号 −1px、行距紧（1.45，与全页 1.6 反向）
+     · 保留原始换行（white-space: pre-wrap）
+     V-R5：命中反馈只能是这段文字自身的底色一闪（0%→4%灰→0%，120ms 一次）。
+     禁 toast / 勾号 / 色相变化 / 音效 —— 任何"操作成功"的产品语汇即违规。 */
+  function fragBlock(text, nodeId) {
+    var n = el('div', 'sd-frag', text);
+    if (nodeId) n.setAttribute('data-node', nodeId);
+    root.appendChild(n);
+    scrollEnd();
+    return n;
+  }
+
+  /* V-R5 命中一闪：只做底色一闪，一次，120ms，不重复。无文字、无图标。 */
+  function fragHit(node) {
+    if (!node || !node.classList) return null;
+    node.classList.add('sd-frag--hit');
+    setTimeout(function () {
+      try { node.classList.remove('sd-frag--hit'); } catch (e) {}
+    }, 140);
+    return node;
+  }
+
   /* ── effects:redact ── 就地抹除已出的某一句（B-10 / L1-c）────────────
      语义上「她把刚说过的那句删了」，所以必须在原位替换，
      而不是在消息流末尾另起一条 —— 后者读起来像系统公告，不像她心虚。
@@ -327,6 +353,7 @@
   SD.Render = {
     mount: mount, el: el,
     bubble: bubble, sysLine: sysLine, linkLine: linkLine, deletedLine: deletedLine,
+    fragBlock: fragBlock, fragHit: fragHit,
     typingOn: typingOn, typingOff: typingOff,
     clearDock: clearDock, choices: choices, freeInput: freeInput,
     playerEcho: playerEcho, feedCards: feedCards,

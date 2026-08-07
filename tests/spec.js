@@ -1023,6 +1023,16 @@ function checkShellVisual() {
   if (!/\.sh-item\s*\{[^}]*display\s*:\s*block/.test(css)) {
     fail(`[R5 视觉] ${SH_CSS} 的 .sh-item 未声明 display:block —— 竖排单列列表是 R5 的核心形态`);
   }
+
+  /* AS-7（V-R4）：桌面主容器 CSS 的 transition 声明数 ≤3。
+     桌面壳只有 ≤100ms opacity 硬切这类转场；3 条是上限，再多个
+     新转场就必须先砍掉旧的 —— 动效是预算，不是装饰。 */
+  const transCount = (css.match(/transition\s*:/g) || []).length;
+  if (transCount > 3) {
+    fail(`[AS-7] ${SH_CSS} 的 transition 声明数 ${transCount} > 3（V-R4 动效预算）`);
+  } else {
+    note(`[AS-7] ${SH_CSS} transition 声明数 ${transCount} ≤ 3（V-R4 动效预算）`);
+  }
   note(`R5 视觉纪律：${SH_CSS} 通过（0 圆角 / 0 投影 / 0 渐变 / 0 字体文件 / 0 url() / 竖排单列 / 单色+一档灰）`);
 }
 

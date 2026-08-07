@@ -84,6 +84,39 @@
   font-style: italic;
 }
 
+/* ── V-R1 第三类视觉物：引用块（{FRAG} 的容器 · ARG-BUILD-12）────────
+   既不是她的气泡，也不是你的气泡 —— 这段文字来自别处。
+   · 无气泡、无圆角、无底色
+   · 左侧 1px 竖线（全站唯一一处竖线）
+   · 字号 −1px、行距紧（1.45，与全页 1.6 反向）
+   · 保留原始换行
+   判据：一眼可辨"这段文字来自别处"（设计真源 §4.3 V-R1）。            */
+.sd-frag {
+  align-self: flex-start;
+  max-width: 78%;
+  margin: 6px 0 2px 2px;
+  padding: 2px 0 2px 12px;
+  border-left: 1px solid var(--sd-dim);
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--sd-dim);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* V-R5 命中反馈：只能是这段文字自身的底色一闪。禁 toast/勾号/色相/音效 */
+  animation: none;
+}
+
+/* V-R5 命中一闪：底色 0% → 4% 灰 → 0%，一次，120ms，不重复。
+   无色相变化（仍是灰）、无文字、无图标 —— "已收下"的产品语汇即违规。 */
+.sd-frag--hit {
+  animation: sd-frag-flash 120ms linear 1;
+}
+@keyframes sd-frag-flash {
+  0%   { background: transparent; }
+  40%  { background: rgba(0,0,0,.04); }
+  100% { background: transparent; }
+}
+
 /* 同屏禁令留白（TW-1 / TW-3 运行期守卫命中时插入）。
    目的只有一个：把上一处推出可视区。它不该被看见，也不该被感知为"内容"。 */
 .sd-spacer {

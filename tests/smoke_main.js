@@ -549,6 +549,38 @@ function main() {
     ok(!/\d+\s*\/\s*\d+|%|进度|完成|成就/.test(retTxt),
       `S18g ★R2 入口不含任何进度/计数/成就字样（实得「${retTxt}」）`);
 
+    /* ── S19 ★ARG-BUILD-12 · 组5.1 V-R1 引用块 + V-R5 命中反馈红线 ─────
+       {FRAG} 的容器是【第三类视觉物】—— 既不是她的气泡也不是你的气泡。
+       本段直测渲染器 API（引擎尚未接线，但渲染器已就位）：
+         · fragBlock 产出 .sd-frag（无气泡、左侧 1px 竖线、行距紧）
+         · fragHit 只做底色一闪（V-R5：禁 toast / 勾号 / 色相变化 / 音效） */
+    const streamEl = env.doc.getElementById('sd-stream');
+    const frag = SD.Render.fragBlock('这是从那边来的。\n第二行也保留。');
+    ok(!!frag && frag.className.indexOf('sd-frag') >= 0,
+      'S19a ★V-R1 fragBlock 渲染出 .sd-frag（第三类视觉物）');
+    ok(!!frag && frag.className.indexOf('sd-bubble') < 0,
+      'S19b ★引用块不是她的气泡也不是你的气泡（无 sd-bubble 类）');
+    ok(!!frag && frag.textContent.indexOf('\n') >= 0,
+      'S19c ★引用块保留原始换行（V-R1）');
+    if (frag && frag.parentNode) frag.parentNode.removeChild(frag);
+
+    /* V-R5：命中反馈只能是引用文字自身的底色一闪，无文字、无图标 */
+    const frag2 = SD.Render.fragBlock('触发一闪');
+    SD.Render.fragHit(frag2);
+    ok(!!frag2 && frag2.classList.contains('sd-frag--hit'),
+      'S19d ★V-R5 fragHit 只挂底色一闪类（sd-frag--hit）');
+    const hitTxt = frag2.textContent || '';
+    ok(!/已收下|✓|勾|成功|收到/.test(hitTxt),
+      `S19e ★V-R5 命中反馈无文字 / 勾号 / 成功语汇（实得「${hitTxt}」）`);
+    if (frag2 && frag2.parentNode) frag2.parentNode.removeChild(frag2);
+
+    /* 引用块容器是【被动的】：文字原样进出，日期剥离是引擎 normalize()
+       的职责（X-2），不放在渲染层 —— 否则两个 token 各自处理会重复/漏掉。 */
+    const frag3 = SD.Render.fragBlock('她读出的那段文字');
+    ok(!!frag3 && frag3.textContent === '她读出的那段文字',
+      'S19f ★V-R1 容器是被动渲染（原样进出，日期剥离归引擎 normalize()，X-2 不落渲染层）');
+    if (frag3 && frag3.parentNode) frag3.parentNode.removeChild(frag3);
+
     report();
   } finally {
     site.cleanup();
