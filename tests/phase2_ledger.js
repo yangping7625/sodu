@@ -176,32 +176,32 @@ const HORROR = {
     zeroMargin: true,  // 平账即零余量：要加必须指名替换
     seats: [
       {
-        id: 'B-P2-A2-1', owner: 'A2', cls: 'B', status: 'planned',
+        id: 'B-P2-A2-1', owner: 'A2', cls: 'B', status: 'built',
         desc: '主线物证帖 · 第 3 页那句话真的在（可验证性核心）',
         probe: { type: 'path', path: 'qsw/t/1024' },
       },
       {
-        id: 'B-P2-A2-2', owner: 'A2', cls: 'B', status: 'planned',
+        id: 'B-P2-A2-2', owner: 'A2', cls: 'B', status: 'built',
         desc: '主线物证帖 · 楼层/UID/注册日期的静态遗留物异常',
         probe: { type: 'path', path: 'qsw/t/1024' },
       },
       {
-        id: 'B-P2-A3-1', owner: 'A3', cls: 'B', status: 'planned',
+        id: 'B-P2-A3-1', owner: 'A3', cls: 'B', status: 'built',
         desc: '争论帖 · R2 档残影（§2.4 已由 2 席降为 1 席 + 1 席氛围）',
         probe: { type: 'path', path: 'qsw/t/1187' },
       },
       {
-        id: 'B-P2-A3-2', owner: 'A3', cls: 'B', status: 'planned',
+        id: 'B-P2-A3-2', owner: 'A3', cls: 'B', status: 'built',
         desc: '争论帖 · 被删回复只剩占位（冷恐怖遗留物）',
         probe: { type: 'path', path: 'qsw/t/1187' },
       },
       {
-        id: 'B-P2-A4-1', owner: 'A4', cls: 'B', status: 'planned',
+        id: 'B-P2-A4-1', owner: 'A4', cls: 'B', status: 'built',
         desc: '死寂帖 · 零回复三楼即止',
         probe: { type: 'path', path: 'qsw/t/0993' },
       },
       {
-        id: 'B-P2-A5-1', owner: 'A5', cls: 'B', status: 'planned',
+        id: 'B-P2-A5-1', owner: 'A5', cls: 'B', status: 'built',
         desc: 'R3 遗物 .txt · 文末密文',
         probe: { type: 'path', path: 'qsw/dl/soda_walkthrough_v3.txt' },
       },
