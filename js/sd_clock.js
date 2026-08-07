@@ -55,8 +55,23 @@
   var panelEl = null;
   var tickTimer = null;
 
+  /* 本页是否被别的页面内嵌（ARG-BUILD-11 / CL-3）。
+     同源，读 top 不会抛；跨源时 try/catch 兜底按「被嵌」处理更安全 ——
+     反正那种情况下我们也不该往别人的视口右下角钉东西。 */
+  function embedded() {
+    try {
+      if (typeof g.self === 'undefined' || typeof g.top === 'undefined') return false;
+      return g.self !== g.top;
+    } catch (e) { return true; }
+  }
+
   /* ── 常驻时钟 ──────────────────────────────────────────────────────── */
   function mountClock() {
+    /* CL-3 单例：本页若开在窗口里，最外层已经有一枚系统时钟了。
+       两枚时钟同时存在会立刻拆穿"这是一台设备"——所以这里直接让位：
+       不挂 DOM、不起定时器、不注册任何监听。
+       ⚠️ 本脚本【保留不删】：裸开 /sd/ 时（self === top）行为与从前完全一致。 */
+    if (embedded()) return null;
     if (clockEl) return clockEl;            // 幂等：重复挂载不重复创建
     var el = document.createElement('button');
     el.setAttribute('type', 'button');

@@ -530,6 +530,18 @@ function checkDualWriteNotice(SD_DATA) {
   } else {
     note('DX-02 双写点：404.html 页脚声明与 footer_notice 逐字一致');
   }
+
+  /* ARG-BUILD-11：/about 是零 JS 的安全区，A2 声明同样写死在 HTML 里。
+     于是这条双写点升级为【三写点】—— 玩家最可能去核对"这是不是真的"
+     的那一页，绝不能是三份里最旧的那一份。 */
+  const ap = path.join(ROOT, 'about', 'index.html');
+  if (!fs.existsSync(ap)) { note('DX-02 三写点：about/index.html 尚未创建，跳过'); return; }
+  const at = fs.readFileSync(ap, 'utf8').replace(/<!--[\s\S]*?-->/g, ' ');
+  if (at.indexOf(footer) < 0) {
+    fail('DX-02 三写点：about/index.html 的 A2 声明与 footer_notice 不一致（改一处漏一处）');
+  } else {
+    note('DX-02 三写点：about/index.html 的 A2 声明与 footer_notice 逐字一致');
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -619,58 +631,67 @@ function checkPhase2Budget(SD_DATA) {
     if (!owner.has(id)) addSeat(id, 'slice', 'B');
   });
 
-  /* ── 静态分区：Phase 2 · 2a 段（占位登记）── */
-  const p2 = H.p2_2a;
-  const seats = p2.seats || [];
-  seats.forEach(function (s) { addSeat(s.id, p2.id, s.cls); });
-
-  const a2a = (tally[p2.id] || {}).A || 0;
-  const b2a = (tally[p2.id] || {}).B || 0;
-
-  if (a2a > p2.A_max) fail(`恐怖预算超支：${p2.id} 段 A 类 ${a2a} > 上限 ${p2.A_max}（Phase 2 实装 A 类 = 0）`);
-  if (b2a > p2.B_max) fail(`恐怖预算超支：${p2.id} 段 B 类 ${b2a} > 上限 ${p2.B_max}`);
-  if (p2.zeroMargin && b2a !== p2.B_max) {
-    fail(`恐怖预算台账不符：${p2.id} 段 B 类登记 ${b2a} ≠ 平账值 ${p2.B_max} ` +
-         `—— 平账即零余量，要加必须指名替换（arg_pages_phase2.md §2.4）`);
-  }
-
-  /* HB-3 / AB-1：安全区页面恒 H=0，任何席位不得指向它 */
+  /* ── 静态分区 ──────────────────────────────────────────────────────
+     p2_2a  = Phase 2 · 2a 段（占位登记）
+     shell  = ARG-BUILD-11 桌面壳（S17 追加 B+4）
+     两段规则完全同构，故走同一段逻辑；新增分区只需在台账里加一项。 */
   const zero = H.zeroHorrorPaths || [];
-  seats.forEach(function (s) {
-    const p = s.probe && s.probe.path;
-    if (p && zero.indexOf(p) >= 0) {
-      fail(`[HB-3 安全区] 席位 ${s.id} 指向 ${p} —— /about 恐怖预算恒为 0，一个 B 类都不许放`);
-    }
-  });
+  const STATIC_PARTS = [H.p2_2a, H.shell].filter(Boolean);
+  const partStat = {};
 
-  /* 台账 ↔ 现实 防漂移探针：
-     页面建了却忘了翻 status（或反过来）会让台账变成一张废纸。 */
-  let planned = 0, built = 0;
-  seats.forEach(function (s) {
-    const pr = s.probe || { type: 'none' };
-    const isBuilt = s.status === 'built';
-    if (isBuilt) built++; else planned++;
+  STATIC_PARTS.forEach(function (p2) {
+    const seats = p2.seats || [];
+    seats.forEach(function (s) { addSeat(s.id, p2.id, s.cls); });
 
-    if (pr.type === 'path') {
-      const exists = fs.existsSync(path.join(ROOT, pr.path));
-      if (isBuilt && !exists) {
-        fail(`[台账漂移] 席位 ${s.id} 标记 built，但页面不存在：${pr.path}`);
-      }
-      if (!isBuilt && exists) {
-        fail(`[台账漂移] 页面 ${pr.path} 已创建，但席位 ${s.id} 仍标 planned ` +
-             `—— 请在 tests/phase2_ledger.js 翻为 built 并填巡检寄存器`);
-      }
-    } else if (pr.type === 'content') {
-      const abs = path.join(ROOT, pr.path);
-      const hit = fs.existsSync(abs) &&
-                  fs.readFileSync(abs, 'utf8').indexOf(pr.marker) >= 0;
-      if (isBuilt && !hit) {
-        fail(`[台账漂移] 席位 ${s.id} 标记 built，但 ${pr.path} 内未见落地标记「${pr.marker}」`);
-      }
-      if (!isBuilt && hit) {
-        fail(`[台账漂移] ${pr.path} 已出现落地标记「${pr.marker}」，但席位 ${s.id} 仍标 planned`);
-      }
+    const a2a = (tally[p2.id] || {}).A || 0;
+    const b2a = (tally[p2.id] || {}).B || 0;
+
+    if (a2a > p2.A_max) fail(`恐怖预算超支：${p2.id} 段 A 类 ${a2a} > 上限 ${p2.A_max}（Phase 2 实装 A 类 = 0）`);
+    if (b2a > p2.B_max) fail(`恐怖预算超支：${p2.id} 段 B 类 ${b2a} > 上限 ${p2.B_max}`);
+    if (p2.zeroMargin && b2a !== p2.B_max) {
+      fail(`恐怖预算台账不符：${p2.id} 段 B 类登记 ${b2a} ≠ 平账值 ${p2.B_max} ` +
+           `—— 平账即零余量，要加必须指名替换（arg_pages_phase2.md §2.4）`);
     }
+
+    /* HB-3 / AB-1：安全区页面恒 H=0，任何席位不得指向它 */
+    seats.forEach(function (s) {
+      const p = s.probe && s.probe.path;
+      if (p && zero.indexOf(p) >= 0) {
+        fail(`[HB-3 安全区] 席位 ${s.id} 指向 ${p} —— /about 恐怖预算恒为 0，一个 B 类都不许放`);
+      }
+    });
+
+    /* 台账 ↔ 现实 防漂移探针：
+       页面建了却忘了翻 status（或反过来）会让台账变成一张废纸。 */
+    let planned = 0, built = 0;
+    seats.forEach(function (s) {
+      const pr = s.probe || { type: 'none' };
+      const isBuilt = s.status === 'built';
+      if (isBuilt) built++; else planned++;
+
+      if (pr.type === 'path') {
+        const exists = fs.existsSync(path.join(ROOT, pr.path));
+        if (isBuilt && !exists) {
+          fail(`[台账漂移] 席位 ${s.id} 标记 built，但页面不存在：${pr.path}`);
+        }
+        if (!isBuilt && exists) {
+          fail(`[台账漂移] 页面 ${pr.path} 已创建，但席位 ${s.id} 仍标 planned ` +
+               `—— 请在 tests/phase2_ledger.js 翻为 built 并填巡检寄存器`);
+        }
+      } else if (pr.type === 'content') {
+        const abs = path.join(ROOT, pr.path);
+        const hit = fs.existsSync(abs) &&
+                    fs.readFileSync(abs, 'utf8').indexOf(pr.marker) >= 0;
+        if (isBuilt && !hit) {
+          fail(`[台账漂移] 席位 ${s.id} 标记 built，但 ${pr.path} 内未见落地标记「${pr.marker}」`);
+        }
+        if (!isBuilt && hit) {
+          fail(`[台账漂移] ${pr.path} 已出现落地标记「${pr.marker}」，但席位 ${s.id} 仍标 planned`);
+        }
+      }
+    });
+
+    partStat[p2.id] = { a: a2a, b: b2a, planned: planned, built: built, def: p2 };
   });
 
   /* ── 全局天花板 ── */
@@ -680,8 +701,12 @@ function checkPhase2Budget(SD_DATA) {
   if (aAll > cap.A_max) fail(`恐怖预算超支：全局 A 类 ${aAll} > 天花板 ${cap.A_max}`);
   if (bAll > cap.B_max) fail(`恐怖预算超支：全局 B 类 ${bAll} > 天花板 ${cap.B_max}`);
 
-  note(`恐怖预算（Phase 2 · 2a 段占位登记）：A ${a2a}/${p2.A_max} · B ${b2a}/${p2.B_max}` +
-       `（planned ${planned} · built ${built}）`);
+  STATIC_PARTS.forEach(function (p) {
+    const st = partStat[p.id];
+    if (!st) return;
+    note(`恐怖预算（${p.label}）：A ${st.a}/${p.A_max} · B ${st.b}/${p.B_max}` +
+         `（planned ${st.planned} · built ${st.built}）`);
+  });
   note(`恐怖预算（全局天花板 A4/B38）：A ${aAll}/${cap.A_max} · B ${bAll}/${cap.B_max} ` +
        `· 余量 A ${cap.A_max - aAll} · B ${cap.B_max - bAll}（留给 2b/2c/§2做深/桌面壳）`);
 }
@@ -925,6 +950,260 @@ function checkDeployManifest() {
        `必需件 ${LEDGER.PUBLISH_REQUIRED.length} 项已点名`);
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   ⑮ ARG-BUILD-11 · 本机（设备壳层）红线
+   ══════════════════════════════════════════════════════════════════════
+   四条断言，逐条对应任务书里点名的硬红线：
+     (A) R5 视觉纪律      —— 电子纸/工业手持终端，加法必须先被这里拦下
+     (B) X-5 / BR-3 隔离  —— 裸开 /qsw/ 零 sh_ 字符、零握手
+     (C) 素读图标恒可见   —— 那一条永远不许变成"待解锁"
+     (D) SH-6 标题栏无人名 + X-9 桥接白名单 + SH-7 单键
+   共同纪律：文件不存在即优雅跳过（与 Phase 2 巡检一致）。            */
+
+const SH_CSS = 'sh_main.css';
+const SH_JS = ['sh_main.js', 'sh_clock.js', 'sh_fm.js', 'sh_bridge.js'];
+
+function readIf(rel) {
+  const p = path.join(ROOT, rel);
+  return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null;
+}
+function stripCss(t) { return t.replace(/\/\*[\s\S]*?\*\//g, ' '); }
+function stripJs(t) {
+  return t.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
+}
+
+/* ── (A) R5 视觉纪律 ────────────────────────────────────────────────
+   这台机器的可信度全靠"没人给它做过视觉设计"。
+   一个圆角、一层阴影、一个渐变，它立刻变回一个 UI 作品。
+   所以纪律写成可执行断言，而不是写在文档里靠自觉。            */
+function checkShellVisual() {
+  const raw = readIf(SH_CSS);
+  if (raw === null) { note(`R5 视觉纪律：${SH_CSS} 不存在，优雅跳过`); return; }
+  const css = stripCss(raw);
+
+  const BAN = [
+    [/border-radius/i,               'R5 全直角：不许圆角'],
+    [/box-shadow/i,                  'R5 不许投影'],
+    [/gradient/i,                    'R5 不许渐变'],
+    [/backdrop-filter/i,             'R5 不许毛玻璃'],
+    [/filter\s*:\s*blur/i,           'R5 不许模糊'],
+    [/@font-face/i,                  'R5 零字体文件'],
+    [/url\s*\(/i,                    'R5 无壁纸位图：本文件 url() 数量必须恒为 0（噪点走 HTML 内联 svg）'],
+    [/grid-template-columns/i,       'R5 图标区是竖排单列列表，不是网格'],
+    [/flex-direction\s*:\s*row/i,    'R5 图标区不许横排'],
+    [/@keyframes|animation\s*:/i,    'R5 无动画'],
+    [/transform\s*:/i,               'R5 无位移 / 缩放'],
+    [/cubic-bezier|ease/i,           'R5 动效仅允许 ≤100ms 的 opacity 硬切（linear）'],
+  ];
+  BAN.forEach(function (b) {
+    if (b[0].test(css)) {
+      const line = css.slice(0, css.search(b[0])).split('\n').length;
+      fail(`[R5 视觉] ${SH_CSS}:L${line} 违反「${b[1]}」`);
+    }
+  });
+
+  /* 单色 + 一档灰：全文件颜色字面量必须在白名单内 */
+  const ALLOW = ['#efeee9', '#191a1c', '#8d8c86'];
+  const hex = (css.match(/#[0-9a-fA-F]{3,8}\b/g) || []).map(function (s) { return s.toLowerCase(); });
+  const bad = [...new Set(hex)].filter(function (h) { return ALLOW.indexOf(h) < 0; });
+  if (bad.length) {
+    fail(`[R5 视觉] ${SH_CSS} 出现白名单外的颜色：${bad.join(', ')} ` +
+         `—— 只允许纸白/近黑/一档灰（${ALLOW.join(' ')}）`);
+  }
+
+  /* 转场时长：> 100ms 就有了"动效设计"的味道 */
+  (css.match(/transition[^;}]*/g) || []).forEach(function (d) {
+    const ms = /(\d+(?:\.\d+)?)\s*ms/.exec(d);
+    const s = /(\d+(?:\.\d+)?)\s*s(?![a-z])/.exec(d);
+    const v = ms ? parseFloat(ms[1]) : (s ? parseFloat(s[1]) * 1000 : 0);
+    if (v > 100) fail(`[R5 视觉] ${SH_CSS} 转场 ${v}ms > 100ms：「${d.trim()}」`);
+  });
+
+  /* 竖排单列：条目必须是块级堆叠 */
+  if (!/\.sh-item\s*\{[^}]*display\s*:\s*block/.test(css)) {
+    fail(`[R5 视觉] ${SH_CSS} 的 .sh-item 未声明 display:block —— 竖排单列列表是 R5 的核心形态`);
+  }
+  note(`R5 视觉纪律：${SH_CSS} 通过（0 圆角 / 0 投影 / 0 渐变 / 0 字体文件 / 0 url() / 竖排单列 / 单色+一档灰）`);
+}
+
+/* ── (B) X-5 / BR-3 物理隔离 ────────────────────────────────────────
+   判据极硬且极好验：裸开 /qsw/，源码里一个 sh_ 都不许有，
+   也不许出现任何朝外说话的动作。归档是一份 2011 年的死镜像 ——
+   它不知道自己正被谁打开，这份无知就是隔离本身。               */
+function checkShellIsolation(files) {
+  const HANDSHAKE = /(?:window|self|globalThis|parent|top)\s*\.\s*(?:parent|top)\b|\bpostMessage\s*\(|\bwindow\s*\.\s*parent\b/;
+  let scanned = 0, qswScanned = 0;
+
+  files.forEach(function (f) {
+    const rel = relOf(f);
+    const ext = path.extname(f).toLowerCase();
+    if (ext !== '.html' && ext !== '.js' && ext !== '.css' && ext !== '.txt') return;
+    const inQsw = /^qsw\//.test(rel);
+    const inAbout = /^about\//.test(rel);
+    const isSave = rel === 'save.html';
+    if (!inQsw && !inAbout && !isSave) return;
+
+    const txt = fs.readFileSync(f, 'utf8');
+    scanned++;
+
+    if (inQsw) {
+      qswScanned++;
+      const re = /(^|[^A-Za-z0-9_])sh_/g;
+      let m, at = [];
+      while ((m = re.exec(txt)) !== null) {
+        at.push('L' + txt.slice(0, m.index).split('\n').length);
+        if (m.index === re.lastIndex) re.lastIndex++;
+      }
+      if (at.length) {
+        fail(`[X-5 裸开判据] ${rel} 出现 "sh_" ${at.length} 处 (${at.slice(0, 5).join(', ')}) ` +
+             `—— 裸开 /qsw/ 必须零 sh_ 字符、零指向 sh_* 的请求`);
+      }
+    }
+
+    if (HANDSHAKE.test(stripJs(txt))) {
+      const line = txt.slice(0, txt.search(HANDSHAKE)).split('\n').length;
+      fail(`[BR-3 握手越权] ${rel}:L${line} 触碰了 window.parent / window.top / postMessage ` +
+           `—— 只有 /sd/（经 sh_bridge.js）可以与本机握手，其余页面一律不得`);
+    }
+  });
+  note(`X-5 / BR-3 隔离：已扫 ${scanned} 个 app 侧文件（其中 /qsw/ ${qswScanned} 个），` +
+       `裸开判据与握手禁令均成立`);
+}
+
+/* ── (C) 素读图标恒可见 ─────────────────────────────────────────────
+   这一条不是 UI 细节，是整台设备的信任基线：
+   玩家任何时候回到第一屏，那个入口都必须在原地、可点、有名字。
+   一旦它会消失/变灰/需要解锁，这台机器就变成了一个游戏关卡。   */
+function checkShellHome() {
+  const html = readIf('index.html');
+  if (html === null) { note('素读入口恒可见：index.html 不存在，优雅跳过'); return; }
+  const body = html.replace(/<!--[\s\S]*?-->/g, ' ');
+
+  if (!/data-sh-item\s*=\s*["']sd["']/.test(body)) {
+    fail('[本机第一屏] index.html 未静态包含 data-sh-item="sd" —— 素读入口必须写死在 HTML 里，不许由脚本生成');
+  }
+  if (!/data-sh-open\s*=\s*["']sd["']/.test(body)) {
+    fail('[本机第一屏] index.html 的素读条目不可点（缺 data-sh-open="sd"）');
+  }
+  if (!/素读/.test(body)) {
+    fail('[本机第一屏] index.html 未渲染「素读」标签 —— 入口必须恒有名字（不许是空槽）');
+  }
+  /* 空槽（渐进具名）只允许出现在存档那一条 */
+  const slots = body.match(/data-sh-slot\s*=\s*["']([^"']+)["']/g) || [];
+  slots.forEach(function (s) {
+    if (!/["']save["']/.test(s)) {
+      fail(`[SH-B1 越界] index.html 出现存档以外的空槽 ${s} —— v1 只有存档条目会被渐进具名`);
+    }
+  });
+
+  const css = readIf(SH_CSS);
+  if (css && /\[data-sh-item\s*=\s*["']sd["']\][^{]*\{[^}]*display\s*:\s*none/.test(stripCss(css))) {
+    fail(`[本机第一屏] ${SH_CSS} 存在隐藏素读条目的规则 —— 它任何时候都不许消失`);
+  }
+  note(`素读入口恒可见：index.html 静态条目 + 可点 + 有名字，空槽仅限存档（${slots.length} 处）`);
+}
+
+/* ── (D) SH-6 标题栏 / X-9 桥接白名单 / SH-7 单键 ───────────────────
+   SH-6 的真正风险不是"写错字"，而是"某天有人图省事，
+   把子页传上来的字符串直接塞进标题栏" —— 那一刻人名就会上去。
+   所以断言钉的是【数据通路】，不是文案。                        */
+function checkShellBridge() {
+  const WHITE = ['title_request', 'clock_sync', 'open_window'];
+  let present = 0;
+
+  SH_JS.forEach(function (rel) {
+    const raw = readIf(rel);
+    if (raw === null) return;
+    present++;
+    const src = stripJs(raw);
+
+    /* SH-6：本机侧不许出现任何人名字段 */
+    [['name_given', '玩家名'], ['\\bnick\\b', '昵称'], ['千绘', '角色名']].forEach(function (p) {
+      const re = new RegExp(p[0]);
+      if (re.test(src)) {
+        fail(`[SH-6] ${rel} 引用了${p[1]}字段/字面量 —— 本机侧（含标题栏）永不渲染人名`);
+      }
+    });
+
+    /* X-9：桥接消息名必须在白名单内 */
+    const msgs = [];
+    let m;
+    const reMsg = /\bt\s*(?::|===|==)\s*['"]([a-z_]+)['"]/g;
+    while ((m = reMsg.exec(src)) !== null) msgs.push(m[1]);
+    [...new Set(msgs)].forEach(function (t) {
+      if (WHITE.indexOf(t) < 0) {
+        fail(`[X-9 桥接白名单] ${rel} 出现协议外消息 "${t}" —— 只允许 ${WHITE.join(' / ')}`);
+      }
+    });
+
+    /* BR-2：桥接载荷禁含 "<"（两头都要校验） */
+    if (/postMessage/.test(src) && !/indexOf\('<'\)|indexOf\("<"\)/.test(src)) {
+      fail(`[BR-2] ${rel} 会 postMessage 却未见 "<" 过滤 —— 载荷禁含标签字符，两头都要挡`);
+    }
+
+    /* SH-7：只允许 sudu_save_v1 这一个键 */
+    const reKey = /localStorage\s*\.\s*(?:get|set|remove)Item\s*\(\s*(['"])([^'"]*)\1/g;
+    while ((m = reKey.exec(src)) !== null) {
+      if (m[2] !== 'sudu_save_v1') {
+        fail(`[SH-7] ${rel} 使用了额外的 localStorage 键 "${m[2]}" —— 全站只允许 sudu_save_v1`);
+      }
+    }
+    if (/localStorage/.test(src) && /KEY\s*=/.test(src) && !/KEY\s*=\s*'sudu_save_v1'/.test(src)) {
+      fail(`[SH-7] ${rel} 的存档键常量不是 'sudu_save_v1'`);
+    }
+  });
+
+  if (!present) { note('本机桥接巡检：sh_*.js 尚未创建，优雅跳过'); return; }
+
+  /* 标题栏只许由固定 app 名表驱动 —— 这是 SH-6 的执行面 */
+  const main = readIf('sh_main.js');
+  if (main !== null) {
+    const src = stripJs(main);
+    const hits = src.match(/titleEl\s*\.\s*textContent\s*=[^;]+/g) || [];
+    if (!hits.length) {
+      fail('[SH-6] sh_main.js 未见标题栏写入点 —— 无法验证标题来源');
+    }
+    hits.forEach(function (h) {
+      if (!/barText\s*\(/.test(h)) {
+        fail(`[SH-6] sh_main.js 标题栏被非 barText() 的来源写入：「${h.trim().slice(0, 60)}」 ` +
+             `—— 标题栏只能取固定 app 名表，绝不能直接落桥接来的字符串`);
+      }
+    });
+    if (!/function\s+fromSd\s*\(|fromSd\s*\(ev\)/.test(src)) {
+      fail('[BR-4] sh_main.js 未见发件人校验（fromSd）—— 只有素读那个 iframe 可以握手');
+    }
+  }
+  note(`本机桥接巡检：${present} 个 sh_*.js 通过（X-9 白名单三条 / BR-2 "<" 过滤 / BR-4 发件人校验 / SH-6 标题栏来源 / SH-7 单键）`);
+}
+
+/* ── (E) 可解析性：每个投产 JS 都必须真的能被解析 ───────────────────────
+   血的教训（BUILD-11 实战）：sh_fm.js 里一个块注释被提前闭合（正文中间
+   多了一个结束符），后面几行中文注释直接变成裸语句 —— 整个文件报废，
+   "文件"和"归档"两个
+   功能一起变白板。而本文件此前所有断言【全部通过】：它们读的是源码字符串，
+   字符串里该有的标记一个不少，只是这份源码根本跑不起来。
+
+   静态扫描永远看不见这种错。所以在这里补一道最基础的门：能不能解析。
+   用 new Function 而非 require —— 不执行任何一行，只走解析器。      */
+function checkParsable(files) {
+  const skip = /[\\/](tests|_wip|tools)[\\/]/;
+  const js = files.filter((f) => f.endsWith('.js') && !skip.test(f));
+  let bad = 0;
+  js.forEach(function (f) {
+    const rel = path.relative(ROOT, f).replace(/\\/g, '/');
+    let src;
+    try { src = fs.readFileSync(f, 'utf8'); } catch (e) { return; }
+    try {
+      new Function(src);                 // 只解析，不执行
+    } catch (e) {
+      bad++;
+      fail(`[语法] ${rel} 无法解析：${e.message} ` +
+           `—— 该文件在浏览器里会整体报废，其上所有静态断言都是假绿`);
+    }
+  });
+  if (!bad) note(`JS 可解析性：${js.length} 个投产脚本全部通过解析器（静态断言的地基）`);
+}
+
 /* ── 主流程 ──────────────────────────────────────────────────────────── */
 function main() {
   const files = [];
@@ -934,6 +1213,7 @@ function main() {
   const sandbox = loadSandbox();
   const SD_DATA = sandbox.SD_DATA;
 
+  checkParsable(files);                 // ⓪ 地基：投产 JS 必须真的能被解析
   scanAbsolutePaths(files);             // ⑨ GH Pages 子路径安全（资源引用面，无需 SD_DATA）
 
   /* ARG-BUILD-09 · Phase 2 全站覆盖（INS-2）—— 均不依赖 SD_DATA，
@@ -942,6 +1222,12 @@ function main() {
   checkStrataIsolation(files);          // ⑪ X-5 反 DRY（资源引用 + 命名前缀）
   checkCrossPageDates(files);           // ⑫ X-2 / D-2 跨页年代窗口
   checkDeadLinks(files);                // ⑬ D-3 死链
+
+  /* ARG-BUILD-11 · 本机（设备壳层）—— 均不依赖 SD_DATA，文件缺失即跳过 */
+  checkShellVisual();                   // ⑮A R5 视觉纪律
+  checkShellIsolation(files);           // ⑮B X-5 裸开判据 + BR-3 握手禁令
+  checkShellHome();                     // ⑮C 素读入口恒可见
+  checkShellBridge();                   // ⑮D SH-6 / X-9 / BR-2 / BR-4 / SH-7
 
   if (!SD_DATA) { fail('无法加载 window.SD_DATA（data/sd_slice.js）'); }
   else {

@@ -56,6 +56,25 @@
          详见本文件下方「统一时间源」段。 */
       time_warp_ms: 0,
 
+      /* ── ARG-BUILD-11 / SH-7：设备层的两个顶层子对象 ────────────────
+         v1 → v2 只做加法：【不搬动任何现有字段】。线上已有玩家的存档
+         必须继续有效 —— 「她还记得你」是本作最不能白白浪费的东西，
+         一次粗心的迁移就能把它清零。
+         · shell —— 设备自己的状态（谁开着、哪一条被命名过）
+         · apps  —— 各 app 的私有格。**没有 apps.sd，也不许有**：
+           素读的状态永远留在顶层（feed_cover / path_flags / timeline …）。
+         time_warp_ms 同理留在顶层：它属于这台设备，不属于任何一个 app。
+         本页一个字段都不读它们，只负责【别把它们弄丢】——
+         load() 补齐缺字段 + commit() 整体回写，缺了声明就会被抹掉。 */
+      shell: {
+        booted_at: null,
+        last_app: null,
+        win_state: {},
+        icons_revealed: [],
+        fm_seen: []
+      },
+      apps: { qsw: {}, soda: {}, fm: {} },
+
       timeline: {
         first_visit_at: now,
         last_leave_at: null,

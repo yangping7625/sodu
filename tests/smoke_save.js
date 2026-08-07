@@ -38,7 +38,7 @@ const ok = (c, m) => { if (c) notes.push('✓ ' + m); else fails.push('✗ ' + m
 /* ── 先跑一遍主对话流，取得"真的经历过对话"的 localStorage ─────────── */
 function playMainAndDumpStorage(site) {
   const env = createEnv({
-    siteRoot: site.siteRoot, pagePath: site.page('index.html'), storage: true
+    siteRoot: site.siteRoot, pagePath: site.page('sd/index.html'), storage: true
   });
   env.runScripts();
   const SD = env.win.SD;
@@ -225,8 +225,11 @@ function main() {
 
     const back = d.doc.querySelector('.sd-ctl__back');
     ok(!!back, 'D4 存档页提供「回到对话」链接');
-    ok(back && back.getAttribute('href') === 'index.html',
-      `D5 返回链接为相对路径 index.html（实得「${back && back.getAttribute('href')}」）`);
+    /* ARG-BUILD-11 / S15：`/` 已让位给「本机」，对话页搬到 `/sd/`。
+       存档页在站根，回链必须指向 sd/index.html —— 指回 index.html 会把玩家
+       从存档甩回桌面，那是一次静默的叙事断裂（且 D-3 死链巡检查不出来）。 */
+    ok(back && back.getAttribute('href') === 'sd/index.html',
+      `D5 返回链接为相对路径 sd/index.html（实得「${back && back.getAttribute('href')}」）`);
     ok(back && !back.getAttribute('href').startsWith('/'),
       'D6 返回链接非根绝对路径（红线⑨）');
 

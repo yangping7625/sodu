@@ -79,7 +79,11 @@
 
     var a = document.createElement('a');
     a.className = 'sd-ret__a';
-    a.setAttribute('href', 'save.html');      // 相对路径（红线⑨：子路径部署可达）
+    /* 相对路径（红线⑨：子路径部署可达）。
+       ARG-BUILD-11 / S15：本页迁到 /sd/ 之后要多退一级，走统一解析出口。 */
+    var href = 'save.html';
+    try { if (SD.Router && SD.Router.rel) href = SD.Router.rel(href); } catch (e) {}
+    a.setAttribute('href', href);
     a.textContent = '存档 001';
     host.appendChild(a);
   }

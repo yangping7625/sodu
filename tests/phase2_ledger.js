@@ -55,6 +55,10 @@ const PUBLISH_EXCLUDE_GLOBS = ['*.md'];   // README 等开发者文档
 const PUBLISH_REQUIRED = [
   'index.html', 'save.html', '404.html', 'robots.txt', 'favicon.svg',
   'css', 'data', 'js',
+  /* ARG-BUILD-11：入口拆成「本机（/）+ 素读（/sd/）」。
+     漏发 sd/ 会让所有旧书签与搜索结果直接 404，
+     漏发 sh_main.css 则第一屏变成裸 HTML —— 两者都必须点名守卫。 */
+  'sd', 'sh_main.css', 'sh_main.js',
 ];
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -77,8 +81,12 @@ const STRATA = [
   {
     id: 'assistant',
     label: '素读 · 2026 地层',
-    /* '' = 仓库根级散件（index/save/404/robots/favicon） */
-    roots: ['', 'css', 'data', 'js', 'about', 'v1'],
+    /* '' = 仓库根级散件（index / save / 404 / robots / favicon / sh_*）
+       ARG-BUILD-11 裁决：本机（桌面壳）与素读同属 2026 设备侧，
+       共处一个地层 —— 它们本来就该长得像同一台机器上的东西。
+       'sd' = S15 迁移后的聊天页目录；'about' = 关于本机（H=0 安全区）。
+       真正需要物理隔离的是 era 地层（qsw/soda/xk），那些靠 iframe。 */
+    roots: ['', 'css', 'data', 'js', 'sd', 'about', 'v1'],
     ownPrefixes: ['sd_', 'sudu_'],
     foreignPrefixes: [],            // 单向纪律，见上方说明
     allowDates: false,              // X-2：主对话/存档/404 永不渲染绝对日期
@@ -115,13 +123,12 @@ const STRATA = [
   },
   {
     id: 'files',
-    label: '桌面壳 · 文件区（2026 设备地层）',
+    label: '设备文件区 · /files/（2026，尚未创建）',
     roots: ['files'],
     ownPrefixes: ['sh_'],
-    /* ⚠️ 知识缺口：桌面壳与素读是否算两个地层（即 /files/ 是否禁 sd_），
-       arg_desktop_shell.md 未明写。此处【不禁 sd_】取保守解，
-       真正的穿帮向量（跨地层 CSS/JS 引用）由资源引用巡检覆盖。
-       待主理人裁决后再收紧。 */
+    /* ARG-BUILD-11 裁决（原为知识缺口）：设备侧与素读同属 2026，不禁 sd_。
+       MVP 的「文件」是本机内建的只读列表视图（sh_fm.js），不落 /files/ 目录，
+       故本地层至今仍未创建 —— 保留登记，等真有独立文件页时直接生效。 */
     foreignPrefixes: ['qsw_', 'xk_'],
     allowDates: false,              // CL-1：设备侧永不显示日期/年份
     allowYears: [],
@@ -214,6 +221,47 @@ const HORROR = {
         id: 'B-P2-C4-1', owner: 'C4', cls: 'B', status: 'planned',
         desc: '404 第二行台词（寄生改造）',
         probe: { type: 'content', path: '404.html', marker: '你在找什么' },
+      },
+    ],
+  },
+
+  /* ── 3b'. 静态分区：ARG-BUILD-11 桌面壳（S17 追加 B+4）─────────────
+     四席全部 B 类（S17 拍板：桌面壳一个 A 类都不拿 —— 容器要是自己会吓人，
+     玩家就会开始怀疑容器，而容器的全部价值在于它不值得怀疑）。
+     四席各自的护栏写在实现里，此处只做台账与防漂移：
+       SH-B1 L0 · 存档条目从空槽变成有名字      · sh_main.js reveal()
+       SH-B2 L0 · 文件列表里那条没有名字的条目  · sh_main.js seen('fm')
+       SH-B3 L1-a· 素读窗口标题栏字距漂移        · sh_main.js barText()
+                   ⚠️ 受 SH-6 约束：只在 app 名内部漂，永不渲染人名
+       SH-B4 L4 · 系统时钟分位停拍              · sh_clock.js
+                   ⚠️ 受 TW-4 护栏：素读可见时绝不异常，且每会话仅 1 次
+     probe 用 content 型（席位落在脚本里，没有对应页面路径可判存在性）。 */
+  shell: {
+    id: 'shell',
+    label: 'ARG-BUILD-11 · 本机（桌面壳）',
+    A_max: 0,
+    B_max: 4,
+    zeroMargin: true,
+    seats: [
+      {
+        id: 'SH-B1', owner: 'BUILD-11', cls: 'B', status: 'built',
+        desc: '存档条目渐进具名（L0）—— 那一行本来就在，只是这次它有了名字',
+        probe: { type: 'content', path: 'sh_main.js', marker: "spend('SH-B1')" },
+      },
+      {
+        id: 'SH-B2', owner: 'BUILD-11', cls: 'B', status: 'built',
+        desc: '文件列表里一条没有文件名的条目（L0）',
+        probe: { type: 'content', path: 'sh_fm.js', marker: "dead(v, '')" },
+      },
+      {
+        id: 'SH-B3', owner: 'BUILD-11', cls: 'B', status: 'built',
+        desc: '素读窗口标题栏字距漂移（L1-a · 受 SH-6：只在 app 名内部）',
+        probe: { type: 'content', path: 'sh_main.js', marker: "spend('SH-B3')" },
+      },
+      {
+        id: 'SH-B4', owner: 'BUILD-11', cls: 'B', status: 'built',
+        desc: '系统时钟分位停拍（L4 · 受 TW-4：素读可见时绝不异常）',
+        probe: { type: 'content', path: 'sh_clock.js', marker: "spend('SH-B4')" },
       },
     ],
   },

@@ -9,7 +9,7 @@
      S3  对话渲染出气泡，且无未替换 token（{NAME} 等不得漏到屏上）
      S4  ★ X-2：投喂卡出处行【不含】2011 绝对历史日期，仅站名 + 楼主 ID
      S5  A-1 揭示走 pause 兜底，{gap}/{avg} 为真实实测值（非硬编码）
-     S6  站内跳转 href 为相对路径 save.html
+     S6  站内跳转 href 为相对路径 ../save.html（BUILD-11 后本页在 /sd/）
      S7  A2 页脚虚构声明已渲染
      S8  屏显红线：TW-2 / TW-3 / {pre_visit_ts} 零命中
      S9  ★ARG-BUILD-04 交互契约：choice 节点的三种形态各自渲染正确
@@ -108,12 +108,12 @@ function main() {
   const site = sim.build('sudu-reader');
   console.log('\n── 烟雾测试 ① 主对话流渲染 ───────────────────────────');
   console.log('  站点根（模拟域名根）: ' + site.siteRoot);
-  console.log('  页面 URL 路径        : /' + site.page('index.html'));
+  console.log('  页面 URL 路径        : /' + site.page('sd/index.html'));
 
   try {
     const env = createEnv({
       siteRoot: site.siteRoot,
-      pagePath: site.page('index.html'),
+      pagePath: site.page('sd/index.html'),
       storage: true
     });
 
@@ -199,7 +199,10 @@ function main() {
     ok(!!link, 'S6a 渲染出站内跳转行');
     if (link) {
       const href = link.getAttribute('href');
-      ok(href === 'save.html', `S6b 跳转 href = "${href}"（相对路径，子路径下可达）`);
+      /* ARG-BUILD-11 / S15：本页从 `/` 迁到 `/sd/`，世界数据里仍写裸名
+         `save.html`，由 SD.Router.rel() 在渲染期补 `../`。断言盯的是
+         【解析结果】而非数据原文 —— 83 个节点一个字都没动。 */
+      ok(href === '../save.html', `S6b 跳转 href = "${href}"（rel() 补出 ../，/sd/ 下可达）`);
       ok(!href.startsWith('/'), 'S6c 跳转 href 非根绝对路径');
     }
     ok(SD.State.hasFlag('save_offered'), 'S6d save_offered 旗标已置（存档页据此判定 E6）');
@@ -266,7 +269,7 @@ function main() {
        另起一个干净环境重跑一遍，全程改用输入框应答。                  */
     const env2 = createEnv({
       siteRoot: site.siteRoot,
-      pagePath: site.page('index.html'),
+      pagePath: site.page('sd/index.html'),
       storage: true
     });
     env2.runScripts();
@@ -482,7 +485,7 @@ function main() {
       leave_ts: [{ at: retStart - 3 * 86400000, from: '/', method: 'seed' }]
     };
     const envR = createEnv({
-      siteRoot: site.siteRoot, pagePath: site.page('index.html'),
+      siteRoot: site.siteRoot, pagePath: site.page('sd/index.html'),
       storage: true, startMs: retStart,
       seedStore: { 'sudu_save_v1': JSON.stringify(seedSave) }
     });
@@ -518,7 +521,7 @@ function main() {
        故必须双向验证 —— 没被邀请前【不存在】，被邀请后【跨页存活】。
        清档按钮本体在存档页，验证见 smoke_save.js 场景 D。            */
     const envFresh = createEnv({
-      siteRoot: site.siteRoot, pagePath: site.page('index.html'), storage: true
+      siteRoot: site.siteRoot, pagePath: site.page('sd/index.html'), storage: true
     });
     envFresh.runScripts({ settleMs: 0 });          // 只装配，不驱动对话
     const retFresh = envFresh.doc.querySelector('[data-sd-ret]');
@@ -530,7 +533,7 @@ function main() {
 
     /* 携带「已被邀请」的真实存档重开一页 —— 模拟同一浏览器下次进来 */
     const envInvited = createEnv({
-      siteRoot: site.siteRoot, pagePath: site.page('index.html'),
+      siteRoot: site.siteRoot, pagePath: site.page('sd/index.html'),
       storage: true, seedStore: env.localStorage._dump()
     });
     envInvited.runScripts({ settleMs: 0 });
@@ -538,7 +541,7 @@ function main() {
     ok(!!retA, 'S18d ★已被邀请 → 重开页面时 /save 入口常驻（跨会话到达）');
     if (retA) {
       const rHref = retA.getAttribute('href');
-      ok(rHref === 'save.html', `S18e 入口 href = "${rHref}"（相对路径）`);
+      ok(rHref === '../save.html', `S18e 入口 href = "${rHref}"（rel() 补出 ../，相对路径）`);
       ok(!rHref.startsWith('/'), 'S18f 入口 href 非根绝对路径（红线⑨）');
     }
     /* R2：入口只能是一扇门，不许夹带进度 / 计数 / 完成度 */

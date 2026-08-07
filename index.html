@@ -3,51 +3,77 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-  <title>素读 · 轻助手</title>
-  <meta name="description" content="素读 · 轻助手 —— 一个只会读东西的小程序。">
+  <title>本机</title>
+  <meta name="description" content="本机。">
   <meta name="robots" content="index,follow">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/sd_base.css">
-  <link rel="stylesheet" href="css/sd_chat.css">
+  <link rel="stylesheet" href="sh_main.css">
 </head>
-<!-- DX-01 同步项：静态标注地层，消除首帧主题跳变。
-     sd_router.js 的 setAttribute 保留不动（幂等，作渐进增强）。 -->
-<body data-site="assistant">
-  <div class="sd-wrap">
-    <header class="sd-head">素读 · 轻助手</header>
+<!-- ARG-BUILD-11 / S15：本页原为聊天页，现已迁至 /sd/（内容零改动）。
+     这里是那台被捡到的机器本身：一条 1px 线、一列条目、一个只报时的钟。
+     它不是操作系统，它是一台只有四个功能的机器（R5 / §7.6.3）。
 
-    <main id="sd-stream" class="sd-stream" aria-live="polite"></main>
+     纪律速查：
+       · 图标区是【竖排单列列表】，不是网格（R5-7）
+       · 无任务栏、无顶栏、无 Dock、无壁纸、无通知（R5-1/2/3/9/11）
+       · 空白处零交互、右键不劫持（R5-12）
+       · app 一律用 iframe 载入（X-5 物理隔离）；移动态改真跳转（§7.8 碰撞 2） -->
+<body data-sh="home">
 
-    <p class="sd-soft" data-sd-soft></p>
+  <!-- 顶部：一条线，线以下什么都没有 -->
+  <div class="sh-top"></div>
 
-    <div id="sd-dock" class="sd-dock"></div>
+  <!-- 1.5% 噪点：内联 SVG，零位图、零外部请求（0 元预算 / R5-9） -->
+  <svg class="sh-noise" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+    <filter id="sh-grain"><feTurbulence type="fractalNoise" baseFrequency="0.86" numOctaves="3" stitchTiles="stitch"/></filter>
+    <rect width="100%" height="100%" filter="url(#sh-grain)"></rect>
+  </svg>
 
-    <!-- /save 常驻入口（ARG-BUILD-08）：默认【空】。
-         只有她在对话里递出过存档之后，sd_app.js 才往这里写一行。
-         未被邀请前这里什么都没有 —— 不是导航条，是她没关的那扇门。 -->
-    <p class="sd-ret" data-sd-ret></p>
+  <!-- ── 条目列表 ─────────────────────────────────────────────────────
+       第一条恒为素读：恒在、恒第一位、恒可点、恒不可隐藏（R8 可扫描断言）。
+       最后一条开局无标签（P-c 痕迹）—— 它不是"以后会出现的图标"，
+       它现在就在那，只是还没有名字（SH-B1 / §5.4）。 -->
+  <ul class="sh-list" data-sh-list>
+    <li class="sh-item" data-sh-item="sd">
+      <button type="button" class="sh-btn" data-sh-open="sd">
+        <span class="sh-g sh-g--solid"></span><span class="sh-label">素读</span>
+      </button>
+    </li>
+    <li class="sh-item" data-sh-item="qsw">
+      <button type="button" class="sh-btn" data-sh-open="qsw">
+        <span class="sh-g sh-g--rows"><i></i><i></i><i></i></span><span class="sh-label">归档</span>
+      </button>
+    </li>
+    <li class="sh-item" data-sh-item="fm">
+      <button type="button" class="sh-btn" data-sh-open="fm">
+        <span class="sh-g sh-g--cells"><i></i><i></i><i></i><i></i></span><span class="sh-label">文件</span>
+      </button>
+    </li>
+    <li class="sh-item" data-sh-item="save">
+      <span class="sh-mute" data-sh-slot="save"><span class="sh-g sh-g--dot"></span></span>
+    </li>
+  </ul>
 
-    <footer class="sd-foot" data-sd-footer></footer>
+  <!-- ── 窗口（同时只有一个可见 · 不可拖拽 · 不可缩放 · 无最大化）──── -->
+  <div class="sh-stage">
+    <section class="sh-win" data-sh-win>
+      <div class="sh-bar">
+        <button type="button" class="sh-ctl sh-ctl--sheet" data-sh-act="min" aria-label="返回">←</button>
+        <span class="sh-bar__t" data-sh-title></span>
+        <span class="sh-bar__c">
+          <button type="button" class="sh-ctl sh-ctl--min" data-sh-act="min" aria-label="最小化">—</button>
+          <button type="button" class="sh-ctl sh-ctl--close" data-sh-act="close" aria-label="关闭">×</button>
+        </span>
+      </div>
+      <div class="sh-body" data-sh-body></div>
+    </section>
   </div>
 
-  <!-- 内容层（只读）：全局 window.SD_DATA -->
-  <script src="data/sd_slice.js"></script>
-  <!-- 基础设施层 -->
-  <script src="js/sd_state.js"></script>
-  <script src="js/sd_timeline.js"></script>
-  <script src="js/sd_idiolect.js"></script>
-  <!-- 行为 / 渲染 / 谜题 -->
-  <script src="js/sd_behavior.js"></script>
-  <!-- 结局判定系统（G-1 · SD-088 挂点 · 只写不读 / R2 零泄漏） -->
-  <script src="js/sd_ending.js"></script>
-  <script src="js/sd_render.js"></script>
-  <script src="js/sd_puzzle.js"></script>
-  <!-- 对话机 + 路由 -->
-  <script src="js/sd_dialogue.js"></script>
-  <script src="js/sd_router.js"></script>
-  <!-- 右下角常驻系统时钟 + 点击设时间（ARG-BUILD-05-rev） -->
-  <script src="js/sd_clock.js"></script>
-  <!-- 主对话页装配 -->
-  <script src="js/sd_app.js"></script>
+  <!-- 只读列表视图（文件 app 用；不产出独立 HTML 页面） -->
+  <script src="sh_fm.js"></script>
+  <!-- 本机的钟：跨 app 常驻、跨窗口不重置、跨会话持久（CL-1~CL-3） -->
+  <script src="sh_clock.js"></script>
+  <!-- 装配 -->
+  <script src="sh_main.js"></script>
 </body>
 </html>

@@ -39,6 +39,30 @@
     return { id: '/' + f, site: 'assistant' };
   }
 
+  /* ── ARG-BUILD-11 / S15：站内裸文件名的路径解析 ──────────────────────
+     本页从 `/` 迁到了 `/sd/`，但内容层（data/sd_slice.js）里写的仍是
+     `save.html` 这种【相对站点根】的裸名 —— 那是 83 个节点的世界数据，
+     不为一次目录调整去动它。于是把解析收敛到这一个出口：
+     渲染链接时过一遍 rel()，在 /sd/ 下补上 `../`，其余页面原样返回。
+
+     规则刻意做窄，只认【纯裸文件名】：
+       save.html          → ../save.html   （在 /sd/ 下）
+       ./x  /x  #x  ?x  a/b  https://…     → 一律不动
+     宁可漏一个也不要错改一个 —— 这里错了就是死链。 */
+  function upPrefix() {
+    try { return /\/sd\/[^/]*$/.test(location.pathname || '') ? '../' : ''; }
+    catch (e) { return ''; }
+  }
+
+  function rel(href) {
+    if (typeof href !== 'string' || !href) return href;
+    if (/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(href)) return href;   // 协议
+    var c = href.charAt(0);
+    if (c === '#' || c === '/' || c === '?' || c === '.') return href;
+    if (href.indexOf('/') >= 0) return href;                    // 已经带路径
+    return upPrefix() + href;
+  }
+
   function boot(opts) {
     opts = opts || {};
     var page = opts.page || resolve();
@@ -65,6 +89,6 @@
     host.appendChild(p);
   }
 
-  SD.Router = { boot: boot, resolve: resolve, PAGES: PAGES };
+  SD.Router = { boot: boot, resolve: resolve, rel: rel, PAGES: PAGES };
 
 })(typeof window !== 'undefined' ? window : globalThis);

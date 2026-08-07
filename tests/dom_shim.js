@@ -160,6 +160,11 @@ class SdElement extends SdNode {
     this.value = '';
     this.scrollTop = 0;
     this.scrollHeight = 1000;
+    /* ARG-BUILD-11：本垫片【不加载】iframe（那需要一个真渲染引擎）。
+       它只把 <iframe> 当成一个带 src 的普通元素来记账，另外留一个可注入的
+       contentWindow —— 桥接测试据此模拟"子页面在说话"，而不必真跑两个上下文。
+       ⚠️ 因此 iframe 内部的行为一律【测不到】：那部分由 app 自己的冒烟测试覆盖。 */
+    if (this.tagName === 'IFRAME') this.contentWindow = null;
     const self = this;
     this.classList = {
       contains: (c) => self.className.split(/\s+/).includes(c),
@@ -291,6 +296,8 @@ function makeClock(startMs) {
  * @param {string} o.pagePath   页面相对 siteRoot 的路径，如 'repo/index.html'
  * @param {boolean} o.storage   localStorage 是否可用（false 模拟 iOS 无痕）
  * @param {object}  o.seedState 预置的存档对象（模拟"已经过对话"）
+ * @param {number}  o.viewport  视口宽度 px（默认 1280；≤719 即窄屏形态）
+ * @param {boolean} o.embedded  本页是否被装在 iframe 里（self !== top）
  */
 function createEnv(o) {
   const siteRoot = o.siteRoot;
@@ -373,14 +380,26 @@ function createEnv(o) {
     requestAnimationFrame: (fn) => clock.setTimeout(fn, 0),
     TextEncoder: global.TextEncoder,
     crypto: undefined,          // 强制走纯 JS SHA-256 回落路径（同 file:// 场景）
+    /* ARG-BUILD-11 · 视口：narrow() 先问 matchMedia，问不到才退 innerWidth。
+       两条路都要给，否则测不出「桌面态 iframe / 移动态真跳转」的分叉。 */
+    innerWidth: Number(o.viewport) || 1280,
+    matchMedia(q) {
+      const m = /\(\s*max-width\s*:\s*(\d+)px\s*\)/.exec(String(q || ''));
+      const matches = m ? win.innerWidth <= Number(m[1]) : false;
+      return { media: String(q || ''), matches, addListener() {}, removeListener() {} };
+    },
     _listeners: new Map(),
     addEventListener(type, fn) {
       if (!win._listeners.has(type)) win._listeners.set(type, []);
       win._listeners.get(type).push(fn);
     },
     removeEventListener() {},
-    dispatch(type) {
-      (win._listeners.get(type) || []).slice().forEach((fn) => fn({ type }));
+    /* 第二参数是载荷：postMessage 的 { data, source } 靠它送进 onMessage。
+       没有它就只能测「监听器挂上了没」，测不到白名单到底拦不拦得住。 */
+    dispatch(type, ev) {
+      const e = Object.assign({ type }, ev || {});
+      (win._listeners.get(type) || []).slice().forEach((fn) => fn(e));
+      return e;
     },
     console: {
       log: (...a) => consoleLog.push(['log', a.join(' ')]),
@@ -391,6 +410,20 @@ function createEnv(o) {
   };
   win.window = win;
   win.globalThis = win;
+
+  /* ARG-BUILD-11 · 嵌套自检面（X-10 / CL-3）：
+       o.embedded 为真 → self !== top，等同「本页被装进了别人的窗口」。
+     js/sd_clock.js 的 embedded() 与 sh_bridge.js 的握手判定都读这两个值，
+     缺了它们就只能测到裸开一条路径，而 CL-3 恰恰是关于另一条路径的。
+
+     宿主还带一个 outbox：子页面 postMessage 出去的东西全落在这里 ——
+     于是「子侧到底发了什么」变成可断言的，而不是只能验证"监听器挂上了"。 */
+  const outbox = [];
+  win.self = win;
+  win.top = o.embedded
+    ? { _shimOuter: true, postMessage: (d, t) => { outbox.push({ data: d, targetOrigin: t }); } }
+    : win;
+  win.parent = o.embedded ? win.top : win;
 
   /* 预置存档（模拟"已经过对话走到 save"） */
   if (o.seedState && o.storage) {
@@ -476,6 +509,8 @@ function createEnv(o) {
     loaded, errors, consoleLog,
     refs, resolveRef, runScripts, withClock,
     pageFile, pageDir, siteRoot,
+    /* 子页面 postMessage 给宿主的全部消息（仅 embedded 模式下有内容） */
+    outbox,
     text: () => doc.body.textContent
   };
 }

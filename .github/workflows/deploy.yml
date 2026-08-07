@@ -48,15 +48,21 @@ jobs:
         run: node tests/spec.js
 
       # 无头烟雾测试：在【子路径部署模拟】下加载真实页面、执行真实脚本。
-      # 这两步会捕获 J-9 静态扫描看不见的运行期回归，例如：
+      # 这三步会捕获 J-9 静态扫描看不见的运行期回归，例如：
       #   · 资源 404（根绝对路径在 /<repo>/ 下裸奔）
       #   · 主对话流断链 / token 未替换 / X-2 绝对日期回归
       #   · 存档页 E6 直访降级失效、R8 谜题锁死
+      #   · 本机窗口/桥接/逃生舱失效，或某个 sh_*.js 整体解析失败
       - name: Smoke 1 - main dialogue flow (subpath deploy sim)
         run: node tests/smoke_main.js
 
       - name: Smoke 2 - save page direct-visit fallback
         run: node tests/smoke_save.js
+
+      # ARG-BUILD-11：本机（宿主侧）。iframe 内部不在覆盖范围内 —— 那部分
+      # 由 Smoke 1 / 2 各自裸开验证，两边合起来才是完整的一台机器。
+      - name: Smoke 3 - device home shell (windows / bridge / escape hatch)
+        run: node tests/smoke_shell.js
 
       - name: Assemble clean publish dir (wildcard + exclude list)
         run: |
@@ -85,7 +91,9 @@ jobs:
           set -euo pipefail
           # 防漂移：排除清单若写太宽，主站必需件会被误排。逐项点名校验。
           missing=0
-          for f in index.html save.html 404.html robots.txt favicon.svg css data js; do
+          # ARG-BUILD-11：入口拆成「/（本机）+ /sd/（素读）」。
+          # 漏发 sd/ 会让所有旧书签与搜索结果直接 404，必须点名守卫。
+          for f in index.html save.html 404.html robots.txt favicon.svg css data js sd sh_main.css sh_main.js; do
             if [ ! -e "publish/$f" ]; then echo "MISSING publish/$f"; missing=1; fi
           done
           if [ "$missing" -ne 0 ]; then

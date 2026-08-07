@@ -1,0 +1,186 @@
+/* ==========================================================================
+   sh_main.css · 本机外观（ARG-BUILD-11 / S19）
+
+   ⚠️ 命名纪律：本机侧的产物名一律避开 shell / desktop / os 这类词。
+      玩家会 view-source，也会看网络面板 —— 一个叫 shell.css 的请求
+      等于在页面上直接写「这是个壳」。前缀统一 sh_（S21）。
+
+   参照物不是电脑，是一台电子墨水阅读器 / 一台工厂里的手持点检终端。
+   功能极少且固定 · 界面就是一张列表 · 没人给它做过视觉设计 ·
+   只有一个颜色 · 响应很快但没有任何动画。
+
+   硬纪律（R5-1 ~ R5-12，逐条可扫描）：
+     · 0 圆角 / 0 投影 / 0 渐变 / 0 毛玻璃 —— 本文件不得出现
+       border-radius / box-shadow / gradient / backdrop-filter / filter:blur
+     · 0 字体文件 —— 不得出现 @font-face 与任何字体 url()
+     · 图标区为【竖排单列列表】—— 本文件不得出现 grid-template-columns
+       与 flex-direction:row
+     · 动效仅允许 ≤100ms 的 opacity 硬切 —— 不得出现 animation / @keyframes /
+       transform / cubic-bezier / ease
+     · 无壁纸位图：纯色 + 一层 1.5% 内联噪点（噪点是 HTML 里的内联 <svg>，
+       不走 CSS url()，因此本文件的 url() 数量恒为 0）
+   ========================================================================== */
+
+:root {
+  --sh-paper: #efeee9;   /* 纸白：与 #ffffff 拉开，"纸的白"而非"软件的白" */
+  --sh-ink:   #191a1c;   /* 近黑 */
+  --sh-dim:   #8d8c86;   /* 唯一的一档灰 */
+  --sh-hair:  1px solid #191a1c;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; height: 100%; }
+
+body[data-sh] {
+  background: var(--sh-paper);
+  color: var(--sh-ink);
+  /* 系统等宽族：零字体文件下载（0 预算 + 许可零风险 + 请求面板干净） */
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+               "Liberation Mono", "Courier New", monospace;
+  font-size: 14px;
+  line-height: 1.4;
+  -webkit-text-size-adjust: 100%;
+}
+
+body[data-sh="home"] { overflow: hidden; }
+
+/* 顶部：一条 1px 线，线以下什么都没有（R5-2：无顶栏、无厂商标志位） */
+.sh-top {
+  position: fixed; left: 0; top: 0; width: 100%; height: 0;
+  border-top: var(--sh-hair); z-index: 3;
+}
+
+/* 1.5% 噪点：内联 <svg> 覆盖层，零位图、零外部请求 */
+.sh-noise {
+  position: fixed; left: 0; top: 0; width: 100%; height: 100%;
+  opacity: .015; pointer-events: none; z-index: 9;
+}
+
+/* ── 竖排单列图标列表（核心：不是网格）───────────────────────────────── */
+.sh-list {
+  position: fixed; left: 20px; top: 28px; width: 176px;
+  margin: 0; padding: 0; list-style: none; z-index: 2;
+}
+.sh-item { display: block; margin: 0 0 18px 0; }
+
+.sh-btn {
+  display: block; width: 100%; margin: 0; padding: 3px 4px;
+  border: 0; background: transparent; color: inherit;
+  font: inherit; text-align: left; cursor: pointer;
+  transition: opacity 80ms linear;
+}
+.sh-btn:hover, .sh-btn:focus { background: var(--sh-ink); color: var(--sh-paper); outline: 0; }
+
+/* 无标签的空条目：不可点、不可聚焦，视觉上只是列表里的一行 */
+.sh-mute { display: block; padding: 3px 4px; color: var(--sh-dim); }
+
+/* 几何符号：纯 CSS 单色方块变体，无位图、无图标字体 */
+.sh-g { display: inline-block; width: 10px; height: 10px; margin-right: 10px; vertical-align: middle; }
+.sh-g--solid  { background: var(--sh-ink); }
+.sh-g--rows i { display: block; height: 2px; background: var(--sh-ink); margin: 0 0 2px 0; }
+.sh-g--cells i{ display: inline-block; width: 4px; height: 4px; background: var(--sh-ink); margin: 0 2px 2px 0; }
+.sh-g--dot    { width: 3px; height: 3px; background: var(--sh-ink); margin-left: 4px; margin-right: 13px; }
+.sh-g--hollow { border: var(--sh-hair); }
+
+/* SH-4：最小化中的 app，几何符号变实心（这是"运行中"，不是完成度） */
+.sh-item[data-run="1"] .sh-g { background: var(--sh-ink); }
+.sh-item[data-run="1"] .sh-g i { background: var(--sh-paper); }
+
+.sh-label { display: inline; }
+
+/* ── 窗口 ───────────────────────────────────────────────────────────── */
+.sh-stage {
+  position: fixed; left: 0; top: 0; width: 100%; height: 100%;
+  z-index: 4; pointer-events: none;
+}
+.sh-win {
+  position: absolute; left: 216px; top: 28px;
+  width: calc(100% - 248px); max-width: 760px; height: calc(100% - 88px);
+  border: var(--sh-hair); background: var(--sh-paper);
+  display: none; pointer-events: auto;
+}
+.sh-win[data-open="1"] { display: block; }
+
+.sh-bar { position: relative; height: 24px; border-bottom: var(--sh-hair); padding-left: 8px; white-space: nowrap; overflow: hidden; }
+.sh-bar__t { display: inline-block; line-height: 24px; font-size: 12px; }
+.sh-bar__c { float: right; }
+
+/* SH-2：只有两个方形描边控件，单色，hover 仅反色不变色相；无最大化 */
+.sh-ctl {
+  width: 16px; height: 16px; margin: 3px 4px 0 0; padding: 0;
+  border: var(--sh-hair); background: transparent; color: inherit;
+  font: inherit; font-size: 11px; line-height: 13px; cursor: pointer;
+}
+.sh-ctl:hover, .sh-ctl:focus { background: var(--sh-ink); color: var(--sh-paper); outline: 0; }
+.sh-ctl--sheet { display: none; }
+
+.sh-body { position: absolute; left: 0; top: 24px; right: 0; bottom: 0; }
+.sh-frame { display: block; width: 100%; height: 100%; border: 0; background: var(--sh-paper); }
+
+/* 内建只读视图（列表纸，不是文件浏览器） */
+.sh-view { position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: auto; padding: 6px 0; }
+.sh-row {
+  display: block; width: 100%; margin: 0; padding: 5px 12px;
+  border: 0; background: transparent; color: inherit;
+  font: inherit; text-align: left; cursor: pointer;
+}
+.sh-row:hover, .sh-row:focus { background: var(--sh-ink); color: var(--sh-paper); outline: 0; }
+.sh-row--dead { cursor: default; }
+.sh-row--dead:hover, .sh-row--dead:focus { background: transparent; color: inherit; }
+.sh-msg { padding: 6px 12px; color: var(--sh-dim); }
+
+/* 二级：上一层 + 内嵌页 */
+.sh-lvl { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.sh-row--up { border-bottom: var(--sh-hair); padding: 4px 12px; }
+.sh-frame--sub { position: absolute; left: 0; top: 28px; right: 0; bottom: 0; width: 100%; height: auto; }
+
+/* ── 时钟（CL-1：只有 HH:MM，永不显示日期 / 星期 / 年份）─────────────── */
+.sh-clock {
+  position: fixed; right: 14px; bottom: 10px; z-index: 12;
+  margin: 0; padding: 2px 4px; border: 0;
+  background: transparent; color: var(--sh-ink); font: inherit; font-size: 13px;
+  cursor: pointer;
+}
+.sh-clock:hover, .sh-clock:focus { background: var(--sh-ink); color: var(--sh-paper); outline: 0; }
+
+.sh-panel {
+  position: fixed; right: 14px; bottom: 38px; z-index: 13;
+  min-width: 176px; padding: 8px;
+  border: var(--sh-hair); background: var(--sh-paper);
+}
+.sh-panel__t { font-size: 12px; margin-bottom: 6px; }
+.sh-panel__l { font-size: 12px; color: var(--sh-dim); margin-bottom: 3px; }
+.sh-panel__g { margin: 7px 0 3px 0; }
+.sh-panel__b, .sh-panel__r {
+  margin: 0 4px 4px 0; padding: 2px 6px;
+  border: var(--sh-hair); background: transparent; color: inherit;
+  font: inherit; font-size: 12px; cursor: pointer;
+}
+.sh-panel__b:hover, .sh-panel__r:hover,
+.sh-panel__b:focus, .sh-panel__r:focus { background: var(--sh-ink); color: var(--sh-paper); outline: 0; }
+
+/* ── /about（安全区文档页，H=0）───────────────────────────────────────── */
+.sh-doc { max-width: 44em; padding: 30px 20px; }
+.sh-doc p { margin: 0 0 14px 0; }
+.sh-doc__id { color: var(--sh-dim); }
+
+/* ── 移动态（<720px）：列表天生就是移动布局；窗口降级为全屏 sheet ───── */
+@media (max-width: 719px) {
+  .sh-list { position: static; width: auto; padding: 24px 16px 0 16px; }
+  .sh-item { margin-bottom: 22px; }
+
+  .sh-win { position: fixed; left: 0; top: 0; width: 100%; max-width: none; height: 100%; border: 0; }
+  .sh-bar { height: 40px; padding-left: 0; }
+  .sh-bar__t { line-height: 40px; font-size: 13px; }
+  .sh-body { top: 40px; }
+
+  /* 移动态只有 ←（= 最小化语义）；不提供关闭 */
+  .sh-ctl--min, .sh-ctl--close { display: none; }
+  .sh-ctl--sheet { display: inline-block; float: left; margin: 11px 10px 0 10px; }
+
+  /* §7.8 碰撞 1：窗口打开时时钟移到顶部状态条右侧，
+     绝不 fixed 在底部 —— 手机上右下角是输入区的发送键 */
+  body[data-sh-open="1"] .sh-clock { top: 0; bottom: auto; right: 12px; line-height: 40px; padding: 0 6px; }
+  body[data-sh-open="1"] .sh-panel { top: 46px; bottom: auto; right: 12px; }
+}

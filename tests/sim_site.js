@@ -19,9 +19,15 @@ const os = require('os');
 
 const ROOT = path.join(__dirname, '..');
 
-/* 与 deploy.yml 保持一致的产物清单 */
-const FILES = ['index.html', 'save.html', '404.html', 'robots.txt', 'favicon.svg'];
-const DIRS = ['css', 'data', 'js'];
+/* 与 deploy.yml 保持一致的产物清单。
+   ARG-BUILD-11：桌面壳把入口拆成了「本机（/）+ 素读（/sd/）」，
+   并新增根级 sh_* 与 /about/。清单漏一个，冒烟就会在 404 上原地打转，
+   而且报错长得像业务 bug —— 所以这里逐个显式列出，不做通配。 */
+const FILES = [
+  'index.html', 'save.html', '404.html', 'robots.txt', 'favicon.svg',
+  'sh_main.css', 'sh_main.js', 'sh_clock.js', 'sh_fm.js', 'sh_bridge.js'
+];
+const DIRS = ['css', 'data', 'js', 'sd', 'about'];
 
 function copyDir(src, dst) {
   fs.mkdirSync(dst, { recursive: true });

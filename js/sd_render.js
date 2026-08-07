@@ -51,11 +51,16 @@
     return n;
   }
 
-  /* 站内跳转行（真换页，不做 SPA 伪装 —— N2 纪律） */
+  /* 站内跳转行（真换页，不做 SPA 伪装 —— N2 纪律）
+     ARG-BUILD-11 / S15：内容层写的是相对站点根的裸名（save.html），
+     本页现在住在 /sd/ 下，统一过一次 SD.Router.rel() 再落 DOM。
+     Router 未就位时按原样输出 —— 解析是增强，不是依赖。 */
   function linkLine(text, href, nodeId) {
     var n = el('div', 'sd-sys');
     var a = el('a', 'sd-link', text);
-    a.setAttribute('href', href);
+    var h = href;
+    try { if (SD.Router && SD.Router.rel) h = SD.Router.rel(href); } catch (e) { h = href; }
+    a.setAttribute('href', h);
     if (nodeId) n.setAttribute('data-node', nodeId);
     n.appendChild(a);
     root.appendChild(n);
