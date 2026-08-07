@@ -2,14 +2,21 @@
 #  deploy.yml · GitHub Pages 部署（gh-pages 分支方案）
 #
 #  • 部署前先跑 J-9 红线扫描（tests/spec.js）—— 任一红线触即阻断发布。
-#  • 只发布干净产物：html / css / js / data / favicon.svg / robots.txt。
-#    明确排除 README.md 与 tests/（开发者文档与测试不进玩家可访问的产物）。
+#  • 【Gap-1 / BUILD-09】“通配发布”形态：把仓库根下的全部静态资源拷进
+#    publish/，仅按排除清单剔除非玩家产物（tests / promo / .github / design /
+#    node_modules / .git / publish / 以及 *.md）。这样 Phase 2 新建的
+#    qsw/ soda/ xk/ files/ 等地层目录会自动进 gh-pages，无需每次改本文件。
+#    （排除项里的 “/” 是 rsync 的“锚定到传输根 = 仓库根”语法，并非文件系统
+#     绝对路径；源路径一律用相对 ./ ，符合子路径部署安全红线。）
+#  • 排除清单与 tests/phase2_ledger.js 的 PUBLISH_EXCLUDE_DIRS/GLOBS 一一对应，
+#    由 J-9 的 checkDeployManifest() 做防漂移校验。
 #  • 产物根放 .nojekyll，避免 GitHub 把下划线目录当 Jekyll 处理。
 #
 #  使用前提（由主理人完成后才真部署）：
 #    1) 在 GitHub 新建仓库，把本目录（gonglue-web/）作为独立仓库推送。
 #    2) 仓库 Settings → Pages → Source 选 "Deploy from a branch" → gh-pages。
 #    3) 本工作流在 push 到默认分支或手动 workflow_dispatch 时触发。
+#    4) 运行环境 ubuntu-latest 自带 rsync（通配发布所用）。
 # ==========================================================================
 name: deploy-pages
 
@@ -51,14 +58,40 @@ jobs:
       - name: Smoke 2 - save page direct-visit fallback
         run: node tests/smoke_save.js
 
-      - name: Assemble clean publish dir
+      - name: Assemble clean publish dir (wildcard + exclude list)
         run: |
           set -euo pipefail
           rm -rf publish
           mkdir -p publish
-          cp index.html save.html 404.html robots.txt favicon.svg publish/
-          cp -r css data js publish/
+          # 通配发布：仓库根下的全部静态资源进 publish/，
+          # 仅按排除清单剔除非玩家产物。排除项里的 “/” 是 rsync 的
+          # “锚定到传输根（= 仓库根）”语法，并非文件系统绝对路径。
+          # Phase 2 新建的 qsw/ soda/ xk/ files/ 等地层目录会自动被包含。
+          rsync -a \
+            --exclude='/.git' \
+            --exclude='/.github' \
+            --exclude='/node_modules' \
+            --exclude='/tests' \
+            --exclude='/promo' \
+            --exclude='/design' \
+            --exclude='/publish' \
+            --exclude='*.md' \
+            ./ publish/
+          # 确保下划线目录不被 Jekyll 吞掉（向后兼容）
           touch publish/.nojekyll
+
+      - name: Verify required artifacts present in publish
+        run: |
+          set -euo pipefail
+          # 防漂移：排除清单若写太宽，主站必需件会被误排。逐项点名校验。
+          missing=0
+          for f in index.html save.html 404.html robots.txt favicon.svg css data js; do
+            if [ ! -e "publish/$f" ]; then echo "MISSING publish/$f"; missing=1; fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "发布清单排除过宽，主站必需件丢失"; exit 1
+          fi
+          echo "publish 内容：" && ls -la publish
 
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4

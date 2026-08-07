@@ -18,6 +18,19 @@
      ⑧ 谜底哈希管线：normalize(KNOWN) 的 sha256 === answer_sha256
      ⑨ GitHub Pages 子路径安全：产物内禁止根绝对资源路径（`/xxx` 开头）
 
+   ── ARG-BUILD-09 · Phase 2 全站覆盖（INS-2 入门条件）─────────────────
+     ⑩ Phase 2 恐怖预算分区台账：2a 段 8×B 占位登记 + 席位全局唯一（HB-5）
+        + 全局天花板 A4/B38 + 台账↔现实防漂移探针
+     ⑪ X-5 反 DRY：地层之间禁共享 CSS/JS/字体（物理隔离靠 iframe）
+        + era 地层禁用素读/桌面壳命名前缀
+     ⑫ X-2 跨页：2026 地层静态页零绝对日期；era 地层日期须落在年代窗口内（D-2）
+     ⑬ D-3 死链：站内 href/src 指向的文件必须存在，未登记的死链即失败
+     ⑭ Gap-1 防漂移：deploy.yml 必须是【通配发布 + 排除清单】形态，
+        且排除清单与 tests/phase2_ledger.js 一致（漏排 tests/ = 谜底上线）
+
+     ⚠️ ⑩–⑬ 对【尚未创建】的 Phase 2 目录一律优雅跳过（skip 而非 fail）：
+        扫描器先于页面就位是 INS-2 的要求，不是页面缺失的报错理由。
+
    ⚠️ 红线⑨ 的由来（ARG-BUILD-02）：GH Pages 项目站地址形如
       https://<user>.github.io/<repo>/ —— 带仓库名子路径。
       此时 `/css/a.css` 会解析到域名根 https://<user>.github.io/css/a.css → 404，
@@ -32,6 +45,10 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+
+/* Phase 2 巡检寄存器（纯声明配置：发布清单 / 地层登记 / 预算台账）。
+   本文件只放逻辑，数据在 ledger —— 2a 施工者改 ledger，不动扫描器。 */
+const LEDGER = require('./phase2_ledger');
 
 const ROOT = path.join(__dirname, '..');
 
@@ -55,7 +72,9 @@ function loadSandbox() {
 
 /* ── 收集部署文件 ────────────────────────────────────────────────────── */
 const SCAN_EXT = new Set(['.html', '.css', '.js', '.svg', '.txt']);
-const EXCLUDE_DIRS = new Set(['.git', 'node_modules', 'tests', '.github']);
+/* 扫描面 == 发布面：排除清单取自 phase2_ledger（deploy.yml 的同一真源）。
+   两边共用一张表，才不会出现"扫了但没发"或"发了但没扫"的缺口。 */
+const EXCLUDE_DIRS = new Set(LEDGER.PUBLISH_EXCLUDE_DIRS);
 
 function walk(dir, out) {
   for (const name of fs.readdirSync(dir)) {
@@ -249,6 +268,13 @@ function scanAbsolutePaths(files) {
   note('GH Pages 子路径安全：已扫 html/css 的 href/src/url() 资源引用面');
 }
 
+/* G-1 段判定（台账分区用）：SD- 前缀节点 / block 以 G1- 开头。
+   模块级共用 —— checkBudgetAndGraph 与 checkPhase2Budget 必须用同一判据，
+   否则两处分区口径会悄悄漂开。 */
+function isG1Node(n) {
+  return /^SD-/.test(n.id || '') || /^G1-/.test(n.block || '');
+}
+
 /* ── 恐怖预算 + 节点图（来自 SD_DATA） ──────────────────────────────── */
 function checkBudgetAndGraph(SD_DATA) {
   const nodes = SD_DATA.dialogue_nodes || [];
@@ -263,9 +289,7 @@ function checkBudgetAndGraph(SD_DATA) {
      G-1 段（SD-）记入同级 horror_budget_g1（P-2 划拨 3 席 B-K1/K2/K3，
      HB-5：切片 A2/B14 十六席零触碰）。分区保证「切片 2/2 · 14/14 零余量」
      红线不被 G-1 的 3 个划拨席位稀释，也保证 G-1 台账 0/0 · 3/3 满额。 */
-  const isG1 = function (n) {
-    return /^SD-/.test(n.id || '') || /^G1-/.test(n.block || '');
-  };
+  const isG1 = isG1Node;
 
   /* 按【唯一 budget_id】计数（非 effect 出现次数）：
      同一 budget_id 在多节点复用只占一席（如 B-5 在 4 节点复用 = 1 席，
@@ -508,6 +532,399 @@ function checkDualWriteNotice(SD_DATA) {
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   ARG-BUILD-09 · Phase 2 全站覆盖（INS-2 入门条件）
+   ══════════════════════════════════════════════════════════════════════
+   下面五段扫描是 arg_pages_phase2.md §3.2 INS-2 的兑现：
+   "J-9 扩展到全站扫描，是 2a 的入门条件（entry condition），不是交付项。"
+
+   共同纪律：Phase 2 的目录（qsw/ soda/ xk/ files/ about/ v1/）
+   【尚未创建】。所有检查必须对"目录不存在"优雅跳过，
+   否则扫描器会在页面建出来之前就把部署卡死。                        */
+
+/* 相对 ROOT 的 posix 路径（Windows 反斜杠归一） */
+function relOf(f) {
+  return path.relative(ROOT, f).replace(/\\/g, '/');
+}
+
+/* 取某相对路径所属地层：按第一段目录名匹配 STRATA.roots。
+   根级散件（index.html 等）第一段为 ''，归 assistant 地层。 */
+function strataOf(rel) {
+  const seg = rel.indexOf('/') >= 0 ? rel.slice(0, rel.indexOf('/')) : '';
+  for (const s of LEDGER.STRATA) if (s.roots.indexOf(seg) >= 0) return s;
+  return null;
+}
+
+/* 某地层是否已在磁盘上存在（用于"未创建即跳过"） */
+function strataExists(s) {
+  return s.roots.some(function (r) {
+    return r === '' ? true : fs.existsSync(path.join(ROOT, r));
+  });
+}
+
+/* 链接归一：返回相对 ROOT 的目标路径；不可判定/站外返回 null。 */
+function resolveLink(fromRel, raw) {
+  if (!raw) return null;
+  const link = raw.trim();
+  if (!link) return null;
+  if (/^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(link)) return null;  // 协议/协议相对/纯锚点
+  if (link.charAt(0) === '/') return null;                        // 根绝对：红线⑨ 已管
+  const clean = link.split('#')[0].split('?')[0];
+  if (!clean) return null;
+  const baseDir = path.posix.dirname(fromRel);
+  let t = path.posix.normalize(path.posix.join(baseDir === '.' ? '' : baseDir, clean));
+  if (t === '.' || t === './') t = '';
+  t = t.replace(/^\.\//, '');
+  return t;
+}
+
+/* ── ⑩ Phase 2 恐怖预算分区台账 ──────────────────────────────────────
+   目的（audit Gap-2 第 1 项）：把 2a 的 8×B 预先分区登记，
+   使 2a 开工时能直接核对，而不是临时去偷占切片那 16 席（HB-5）。   */
+function checkPhase2Budget(SD_DATA) {
+  const H = LEDGER.HORROR;
+
+  /* 席位总登记簿：seatId → 分区。跨分区重号 = HB-5 席位寄生。 */
+  const owner = new Map();
+  const tally = {};
+  const bump = function (part, cls) {
+    if (!tally[part]) tally[part] = { A: 0, B: 0 };
+    if (cls === 'A' || cls === 'B') tally[part][cls]++;
+  };
+  const addSeat = function (id, part, cls) {
+    if (owner.has(id)) {
+      fail(`[HB-5 席位寄生] 席位 ${id} 被重复登记：${owner.get(id)} 与 ${part} ` +
+           `—— 同一编号不得跨分区复用（新席位必须用全新编号）`);
+      return;
+    }
+    owner.set(id, part);
+    bump(part, cls);
+  };
+
+  /* 动态分区：席位从 data/ 的真实 effects 里数出来 */
+  (SD_DATA.dialogue_nodes || []).forEach(function (n) {
+    const part = isG1Node(n) ? 'g1' : 'slice';
+    (n.effects || []).forEach(function (e) {
+      if (e.type === 'horror' && e.budget_id && !owner.has(e.budget_id)) {
+        addSeat(e.budget_id, part, e.class);
+      } else if (e.type === 'horror' && e.budget_id && owner.get(e.budget_id) !== part) {
+        /* 同一 budget_id 在【同分区】多节点复用只占一席（既有纪律）；
+           但跨分区复用 = 寄生，必须报。 */
+        fail(`[HB-5 席位寄生] 席位 ${e.budget_id} 跨分区复用：` +
+             `${owner.get(e.budget_id)} → ${part}`);
+      }
+    });
+  });
+  ((SD_DATA.horror_budget || {}).B_offdialogue || []).forEach(function (id) {
+    if (!owner.has(id)) addSeat(id, 'slice', 'B');
+  });
+
+  /* ── 静态分区：Phase 2 · 2a 段（占位登记）── */
+  const p2 = H.p2_2a;
+  const seats = p2.seats || [];
+  seats.forEach(function (s) { addSeat(s.id, p2.id, s.cls); });
+
+  const a2a = (tally[p2.id] || {}).A || 0;
+  const b2a = (tally[p2.id] || {}).B || 0;
+
+  if (a2a > p2.A_max) fail(`恐怖预算超支：${p2.id} 段 A 类 ${a2a} > 上限 ${p2.A_max}（Phase 2 实装 A 类 = 0）`);
+  if (b2a > p2.B_max) fail(`恐怖预算超支：${p2.id} 段 B 类 ${b2a} > 上限 ${p2.B_max}`);
+  if (p2.zeroMargin && b2a !== p2.B_max) {
+    fail(`恐怖预算台账不符：${p2.id} 段 B 类登记 ${b2a} ≠ 平账值 ${p2.B_max} ` +
+         `—— 平账即零余量，要加必须指名替换（arg_pages_phase2.md §2.4）`);
+  }
+
+  /* HB-3 / AB-1：安全区页面恒 H=0，任何席位不得指向它 */
+  const zero = H.zeroHorrorPaths || [];
+  seats.forEach(function (s) {
+    const p = s.probe && s.probe.path;
+    if (p && zero.indexOf(p) >= 0) {
+      fail(`[HB-3 安全区] 席位 ${s.id} 指向 ${p} —— /about 恐怖预算恒为 0，一个 B 类都不许放`);
+    }
+  });
+
+  /* 台账 ↔ 现实 防漂移探针：
+     页面建了却忘了翻 status（或反过来）会让台账变成一张废纸。 */
+  let planned = 0, built = 0;
+  seats.forEach(function (s) {
+    const pr = s.probe || { type: 'none' };
+    const isBuilt = s.status === 'built';
+    if (isBuilt) built++; else planned++;
+
+    if (pr.type === 'path') {
+      const exists = fs.existsSync(path.join(ROOT, pr.path));
+      if (isBuilt && !exists) {
+        fail(`[台账漂移] 席位 ${s.id} 标记 built，但页面不存在：${pr.path}`);
+      }
+      if (!isBuilt && exists) {
+        fail(`[台账漂移] 页面 ${pr.path} 已创建，但席位 ${s.id} 仍标 planned ` +
+             `—— 请在 tests/phase2_ledger.js 翻为 built 并填巡检寄存器`);
+      }
+    } else if (pr.type === 'content') {
+      const abs = path.join(ROOT, pr.path);
+      const hit = fs.existsSync(abs) &&
+                  fs.readFileSync(abs, 'utf8').indexOf(pr.marker) >= 0;
+      if (isBuilt && !hit) {
+        fail(`[台账漂移] 席位 ${s.id} 标记 built，但 ${pr.path} 内未见落地标记「${pr.marker}」`);
+      }
+      if (!isBuilt && hit) {
+        fail(`[台账漂移] ${pr.path} 已出现落地标记「${pr.marker}」，但席位 ${s.id} 仍标 planned`);
+      }
+    }
+  });
+
+  /* ── 全局天花板 ── */
+  let aAll = 0, bAll = 0;
+  for (const k in tally) { aAll += tally[k].A; bAll += tally[k].B; }
+  const cap = H.ceiling;
+  if (aAll > cap.A_max) fail(`恐怖预算超支：全局 A 类 ${aAll} > 天花板 ${cap.A_max}`);
+  if (bAll > cap.B_max) fail(`恐怖预算超支：全局 B 类 ${bAll} > 天花板 ${cap.B_max}`);
+
+  note(`恐怖预算（Phase 2 · 2a 段占位登记）：A ${a2a}/${p2.A_max} · B ${b2a}/${p2.B_max}` +
+       `（planned ${planned} · built ${built}）`);
+  note(`恐怖预算（全局天花板 A4/B38）：A ${aAll}/${cap.A_max} · B ${bAll}/${cap.B_max} ` +
+       `· 余量 A ${cap.A_max - aAll} · B ${cap.B_max - bAll}（留给 2b/2c/§2做深/桌面壳）`);
+}
+
+/* ── ⑪ X-5 反 DRY：地层之间禁共享资源 ────────────────────────────────
+   X-5 原文："汽水屋不得引用主站的任何 CSS/JS/字体文件，不得使用 sudu_
+   前缀，不得走主站路由器。宁可复制粘贴 CSS。"
+   > 在 ARG 里，DRY 是穿帮源。一次 view-source: 当场穿帮。
+
+   两条巡检：
+     (a) 资源引用面：<link> / <script src> / CSS @import / url() 跨地层 = fail。
+         ⚠️ <iframe src> 与 <a href> 【放行】—— 物理隔离本来就靠 iframe，
+            地层之间的跳转是叙事，不是资源共享。
+     (b) 命名前缀面：era 地层（qsw/soda/xk）内出现素读/桌面壳前缀 = fail。
+         单向纪律，理由见 phase2_ledger.js STRATA 注释。            */
+function checkStrataIsolation(files) {
+  /* 未登记地层守卫：新开一个顶层目录却没登记，后续所有巡检都会漏掉它。 */
+  const unreg = new Set();
+  files.forEach(function (f) {
+    const rel = relOf(f);
+    if (!strataOf(rel)) unreg.add(rel.slice(0, rel.indexOf('/')));
+  });
+  unreg.forEach(function (d) {
+    fail(`[X-5 地层未登记] 顶层目录 "${d}/" 不在 phase2_ledger.js 的 STRATA 表内 ` +
+         `—— 未登记的地层不会被反 DRY / 年代窗口巡检覆盖，请先登记`);
+  });
+
+  /* (a) 跨地层资源引用 */
+  const REFS = [
+    { ext: '.html', re: /<link\b[^>]*?href\s*=\s*["']([^"']+)["'][^>]*>/gi, what: '<link>' },
+    { ext: '.html', re: /<script\b[^>]*?src\s*=\s*["']([^"']+)["']/gi, what: '<script src>' },
+    { ext: '.css', re: /@import\s+(?:url\(\s*)?["']([^"']+)["']/gi, what: '@import' },
+    { ext: '.css', re: /url\(\s*["']?([^"')]+)["']?\s*\)/gi, what: 'url()' },
+  ];
+
+  files.forEach(function (f) {
+    const rel = relOf(f);
+    const mine = strataOf(rel);
+    if (!mine) return;
+    const ext = path.extname(f).toLowerCase();
+    const txt = fs.readFileSync(f, 'utf8');
+
+    REFS.forEach(function (r) {
+      if (r.ext !== ext) return;
+      r.re.lastIndex = 0;
+      let m;
+      while ((m = r.re.exec(txt)) !== null) {
+        const target = resolveLink(rel, m[1]);
+        if (target === null) continue;                 // 站外 / data: / 锚点
+        if (/^\.\./.test(target)) continue;            // 越出仓库根，交由死链巡检
+        const theirs = strataOf(target);
+        if (theirs && theirs.id !== mine.id) {
+          const line = txt.slice(0, m.index).split('\n').length;
+          fail(`[X-5 反DRY] ${mine.label} 的 ${rel}:L${line} 通过 ${r.what} 引用了 ` +
+               `${theirs.label} 的资源 "${m[1]}" —— 地层间禁共享 CSS/JS/字体，` +
+               `请复制一份到本地层（物理隔离靠 iframe，不靠复用）`);
+        }
+        if (m.index === r.re.lastIndex) r.re.lastIndex++;
+      }
+    });
+
+    /* (b) 命名前缀泄漏 */
+    (mine.foreignPrefixes || []).forEach(function (pfx) {
+      /* 锚定标识符起始：前一个字符不能是字母/数字/下划线。
+         否则 refresh_rule → 误判 sh_、sd_b6_qsw_seen → 误判 qsw_。 */
+      const re = new RegExp('(^|[^A-Za-z0-9_])' + pfx.replace(/_/g, '_'), 'g');
+      let m, at = [];
+      while ((m = re.exec(txt)) !== null) {
+        at.push('L' + txt.slice(0, m.index).split('\n').length);
+        if (m.index === re.lastIndex) re.lastIndex++;
+      }
+      if (at.length) {
+        fail(`[X-5 前缀泄漏] ${mine.label} 的 ${rel} 出现外层前缀 "${pfx}" ` +
+             `${at.length} 处 (${at.slice(0, 5).join(', ')}) —— 本地层应使用 ` +
+             `${(mine.ownPrefixes || []).join(' / ')}`);
+      }
+    });
+  });
+
+  /* 跳过登记：让主理人在 CI 日志里看得见"哪些地层还没建" */
+  const pending = LEDGER.STRATA.filter(function (s) { return !strataExists(s); })
+                               .map(function (s) { return s.roots.join('|'); });
+  note(`X-5 反DRY 巡检：已登记地层 ${LEDGER.STRATA.length} 个` +
+       (pending.length ? `，尚未创建 ${pending.length} 个（${pending.join(', ')}）—— 优雅跳过` : ''));
+}
+
+/* ── ⑫ X-2 跨页年代窗口（D-2）────────────────────────────────────────
+   2026 地层（素读 / 桌面壳）：绝对日期一个都不许有 —— 她只说相对时间。
+   era 地层（2011 汽水屋 / 2019 镜像者）：可以有绝对日期，
+   但年份必须落在自己的年代窗口内，否则就是穿帮（一个 2015 年的
+   回帖出现在 2013 就关站的论坛上，ARG 玩家会数）。
+
+   扫描面 = 静态页的【屏显面】（html 可见文本 + title + meta description，
+   以及裸渲染的 .txt）。刻意不扫 js/css 源码 —— 那里的 2000 是 setTimeout
+   毫秒数、2026 是注释里的 X-2 危险品警告，全是假阳性。
+   主对话渲染面的 X-2 由 checkNodes() 另行把关，两者互补不重叠。      */
+function htmlSurface(txt) {
+  let t = txt;
+  const extra = [];
+  /* meta description 会出现在标签页/分享卡，算屏显面 */
+  t.replace(/<meta\b[^>]*>/gi, function (m) {
+    if (/name\s*=\s*["'](?:description|og:description)["']/i.test(m)) {
+      const c = /content\s*=\s*["']([^"']*)["']/i.exec(m);
+      if (c) extra.push(c[1]);
+    }
+    return m;
+  });
+  t = t.replace(/<!--[\s\S]*?-->/g, ' ');
+  t = t.replace(/<script\b[\s\S]*?<\/script>/gi, ' ');
+  t = t.replace(/<style\b[\s\S]*?<\/style>/gi, ' ');
+  t = t.replace(/<[^>]+>/g, ' ');
+  return t + ' ' + extra.join(' ');
+}
+
+function checkCrossPageDates(files) {
+  const YEAR = /\b(19|20)\d{2}\b/g;
+  const DATEISH = /\b(?:19|20)\d{2}\s*[-/.年]\s*\d{1,2}\s*[-/.月]\s*\d{1,2}/;
+  let scanned = 0;
+
+  files.forEach(function (f) {
+    const rel = relOf(f);
+    const ext = path.extname(f).toLowerCase();
+    if (ext !== '.html' && ext !== '.txt') return;
+    const st = strataOf(rel);
+    if (!st) return;
+
+    const raw = fs.readFileSync(f, 'utf8');
+    const surface = ext === '.html' ? htmlSurface(raw) : raw;
+    scanned++;
+
+    YEAR.lastIndex = 0;
+    const hits = [];
+    let m;
+    while ((m = YEAR.exec(surface)) !== null) hits.push(m[0]);
+    if (!hits.length) return;
+
+    if (!st.allowDates) {
+      const dated = DATEISH.test(surface);
+      fail(`[X-2 跨页] ${st.label} 的静态页 ${rel} 屏显面出现绝对年份` +
+           `${dated ? '/日期串' : ''}：${[...new Set(hits)].slice(0, 4).join(', ')} ` +
+           `—— 2026 地层只用相对时间，绝对日期属论坛地层`);
+      return;
+    }
+    const bad = [...new Set(hits)].filter(function (y) {
+      return st.allowYears.indexOf(parseInt(y, 10)) < 0;
+    });
+    if (bad.length) {
+      fail(`[D-2 年代窗口] ${st.label} 的 ${rel} 出现窗口外年份：${bad.join(', ')} ` +
+           `—— 本地层允许 ${Math.min.apply(null, st.allowYears)}–` +
+           `${Math.max.apply(null, st.allowYears)}`);
+    }
+  });
+  note(`X-2 跨页年代窗口：已扫静态页屏显面 ${scanned} 个`);
+}
+
+/* ── ⑬ D-3 死链巡检 ──────────────────────────────────────────────────
+   判据不是"没有死链"，而是"每一条死链都是【故意的】死链"。
+   故意的登记进 phase2_ledger.INTENTIONAL_DEAD_LINKS；没登记的就是忘了做。 */
+function checkDeadLinks(files) {
+  const white = LEDGER.INTENTIONAL_DEAD_LINKS || [];
+  const ATTR = /(?:href|src)\s*=\s*["']([^"']+)["']/gi;
+  let checked = 0, intentional = 0;
+
+  files.forEach(function (f) {
+    if (path.extname(f).toLowerCase() !== '.html') return;
+    const rel = relOf(f);
+    const txt = fs.readFileSync(f, 'utf8');
+    /* 注释里的示例链接不算引用 */
+    const body = txt.replace(/<!--[\s\S]*?-->/g, ' ');
+
+    ATTR.lastIndex = 0;
+    let m;
+    while ((m = ATTR.exec(body)) !== null) {
+      const raw = m[1];
+      const target = resolveLink(rel, raw);
+      if (m.index === ATTR.lastIndex) ATTR.lastIndex++;
+      if (target === null) continue;
+      checked++;
+
+      if (/^\.\./.test(target)) {
+        fail(`[D-3 死链] ${rel} 的 "${raw}" 越出仓库根 —— 产物内无此文件`);
+        continue;
+      }
+      const abs = path.join(ROOT, target);
+      let ok = false;
+      if (fs.existsSync(abs)) {
+        ok = fs.statSync(abs).isDirectory()
+          ? fs.existsSync(path.join(abs, 'index.html'))
+          : true;
+      }
+      if (ok) continue;
+
+      const listed = white.some(function (w) { return w.from === rel && w.to === raw; });
+      if (listed) { intentional++; continue; }
+      fail(`[D-3 死链] ${rel} → "${raw}" 指向不存在的文件（解析为 ${target || '/'}）` +
+           ` —— 若是【故意的】死链，请登记到 phase2_ledger.INTENTIONAL_DEAD_LINKS`);
+    }
+  });
+  note(`D-3 死链巡检：已核 ${checked} 条站内引用` +
+       (intentional ? `，其中 ${intentional} 条为已登记的故意死链` : '，0 条死链'));
+}
+
+/* ── ⑭ Gap-1 防漂移：deploy.yml 必须是通配发布形态 ────────────────────
+   Phase 2 新建的 /qsw/ /soda/ /about 等目录，只有在 deploy.yml 通配发布
+   之后才会真的进 gh-pages。这条巡检把"发布清单"钉死在 J-9 门禁里：
+   谁把它改回硬编码清单，部署当场被自己的门禁拦下。                   */
+function checkDeployManifest() {
+  const p = path.join(ROOT, '.github', 'workflows', 'deploy.yml');
+  if (!fs.existsSync(p)) { fail('[Gap-1] 未找到 .github/workflows/deploy.yml'); return; }
+  const y = fs.readFileSync(p, 'utf8');
+
+  if (/cp\s+index\.html\s+save\.html/.test(y)) {
+    fail('[Gap-1 回归] deploy.yml 又出现硬编码发布清单（cp index.html save.html …）' +
+         ' —— Phase 2 新目录会进不了 gh-pages，玩家访问即 404');
+  }
+  if (!/publish_dir:\s*\.\/publish/.test(y)) {
+    fail('[Gap-1] deploy.yml 的 publish_dir 不是 ./publish');
+  }
+  if (y.indexOf('.nojekyll') < 0) {
+    fail('[Gap-1] deploy.yml 未生成 .nojekyll —— 下划线目录会被 Jekyll 吞掉');
+  }
+
+  /* 排除清单必须与 ledger 一致：漏排 tests/ = 谜底哈希上线 */
+  LEDGER.PUBLISH_EXCLUDE_DIRS.forEach(function (d) {
+    const re = new RegExp("--exclude=['\"]?\\.?/?" + d.replace(/\./g, '\\.') + '\\b');
+    if (!re.test(y)) {
+      fail(`[Gap-1] deploy.yml 未排除 "${d}/" —— 与 phase2_ledger.PUBLISH_EXCLUDE_DIRS 不一致`);
+    }
+  });
+  LEDGER.PUBLISH_EXCLUDE_GLOBS.forEach(function (g) {
+    if (y.indexOf(g) < 0) fail(`[Gap-1] deploy.yml 未排除 "${g}"`);
+  });
+  /* 向后兼容：必需件必须在产物校验步骤里被点名 */
+  LEDGER.PUBLISH_REQUIRED.forEach(function (n) {
+    if (y.indexOf(n) < 0) {
+      fail(`[Gap-1] deploy.yml 的产物校验未点名必需项 "${n}" —— 排除清单写太宽会把主站排没`);
+    }
+  });
+  note(`Gap-1 发布清单：deploy.yml 为通配发布形态，排除 ` +
+       `${LEDGER.PUBLISH_EXCLUDE_DIRS.length} 个目录 + ${LEDGER.PUBLISH_EXCLUDE_GLOBS.join('/')}，` +
+       `必需件 ${LEDGER.PUBLISH_REQUIRED.length} 项已点名`);
+}
+
 /* ── 主流程 ──────────────────────────────────────────────────────────── */
 function main() {
   const files = [];
@@ -519,11 +936,19 @@ function main() {
 
   scanAbsolutePaths(files);             // ⑨ GH Pages 子路径安全（资源引用面，无需 SD_DATA）
 
+  /* ARG-BUILD-09 · Phase 2 全站覆盖（INS-2）—— 均不依赖 SD_DATA，
+     且对尚未创建的 Phase 2 目录优雅跳过。 */
+  checkDeployManifest();                // ⑭ Gap-1 发布清单防漂移
+  checkStrataIsolation(files);          // ⑪ X-5 反 DRY（资源引用 + 命名前缀）
+  checkCrossPageDates(files);           // ⑫ X-2 / D-2 跨页年代窗口
+  checkDeadLinks(files);                // ⑬ D-3 死链
+
   if (!SD_DATA) { fail('无法加载 window.SD_DATA（data/sd_slice.js）'); }
   else {
     scanFilesMeta(files, SD_DATA);      // ① 元层禁词（分面）+ ⑤ 明文（文件级）
     scanRendered(extractRendered(SD_DATA));   // ②–④ 屏显红线（渲染面）
     checkBudgetAndGraph(SD_DATA);
+    checkPhase2Budget(SD_DATA);                // ⑩ Phase 2 预算分区台账（2a 占位登记）
     checkNodes(SD_DATA);                       // §9 节点存在性 + 字段 + 明文纪律 + X-2
     checkDualWriteNotice(SD_DATA);             // DX-02 双写点（404.html ↔ footer_notice）
     checkHash(SD_DATA, sandbox);
