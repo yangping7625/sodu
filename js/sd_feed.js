@@ -169,12 +169,35 @@
   }
 
   /* 纯 JS SHA-256（零依赖；与 save_table.answer_sha256 同一管线思路）。
-     运行时由调用方经 SD.Puzzle.sha256 或本模块内部实现 —— 兜底自实现。 */
-  function lookupHash(norm) {
+     运行时由调用方经 SD.Puzzle.sha256 或本模块内部实现 —— 兜底自实现。
+     ⚠️ Wave 2（真别名接线）：markers 表键是 mk_*、值是 hash 数组，
+     不能 table[hex] 直查 —— 需建【hash → key】反向索引（惰性缓存）。 */
+  var HASH_INDEX = null;
+  function hashIndex() {
+    if (HASH_INDEX !== null) return HASH_INDEX;
+    HASH_INDEX = {};
     var table = markerTable();
+    var k, arr, i;
+    for (k in table) {
+      arr = table[k] || [];
+      for (i = 0; i < arr.length; i++) HASH_INDEX[arr[i]] = { key: k };
+    }
+    return HASH_INDEX;
+  }
+  function lookupHash(norm) {
     var hex = sha256Hex(norm);
-    if (!hex || !table[hex]) return null;
-    return table[hex];          // { key, reaction: [] }（真别名后由生成脚本填充）
+    if (!hex) return null;
+    var entry = hashIndex()[hex];
+    if (!entry) return null;
+    return { key: entry.key, sfNodes: sfNodesOf(entry.key) };
+  }
+  /* marker → SF 反应节点 ID 数组（文本唯一真源在 dialogue_nodes 的 SF-*）。
+     表在内容层 SD_DATA.sf_reactions，引擎通用读，不认具体 ID 的分支。 */
+  function sfNodesOf(key) {
+    try {
+      var map = (g.SD_DATA && g.SD_DATA.sf_reactions) || {};
+      return (map[key] && map[key].nodes) || [];
+    } catch (e) { return []; }
   }
 
   /* ── {FRAG} 运行期 token（§1.3 / FE-01 / FE-03）────────────────────
@@ -247,6 +270,7 @@
     feedHooks: FEED_HOOKS,
     feedHookExclude: FEED_HOOK_EXCLUDE,
     markerTable: markerTable,
+    sfNodesOf: sfNodesOf,
     u1Lines: u1Lines,
     u3Reply: u3Reply,
     countU1: countU1,

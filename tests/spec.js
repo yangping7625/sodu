@@ -354,11 +354,17 @@ function checkBudgetAndGraph(SD_DATA) {
     if (n.free_input) push(n.free_input.next);
   }
   dangling.forEach(function (d) { fail('节点图悬空引用：' + d); });
-  /* 孤儿检测：puzzle_hint 节点由谜题提示阶梯注入，不在静态可达链上，放行 */
+  /* 孤儿检测：puzzle_hint 节点由谜题提示阶梯注入，不在静态可达链上，放行；
+     SF-* 节点由投喂引擎插播（marker 的 sf_reactions 引用），同样不在
+     静态可达链上（FM-1：链结构永不因投喂改变）—— 两者同属放行类。 */
   nodes.forEach(function (n) {
     if (reach.has(n.id)) return;
     if ((n.tags || []).indexOf('puzzle_hint') >= 0) {
       note('节点 ' + n.id + '：puzzle_hint，由提示阶梯注入（不在静态可达链），放行');
+      return;
+    }
+    if (/^SF-/.test(n.id || '')) {
+      note('节点 ' + n.id + '：SF-*，由投喂引擎插播（sf_reactions 引用，不在静态可达链），放行');
       return;
     }
     fail('节点图孤儿节点：' + n.id);
@@ -1308,23 +1314,84 @@ function walkQsw() {
    共同纪律：缺文件即跳过（骨架期 feed_markers 可能未生成）。         */
 
 /* AS-4（SH-0 回归）：既有 173 节点的 text/id/next 与上线版逐字节一致。
-   做法：把当前 dialogue_nodes 的关键字段连成串做 sha256，与台账基线比对。
+   做法：把当前 dialogue_nodes 中【既有节点（非 SF-* 前缀）】的关键字段
+   连成串做 sha256，与台账基线比对。
    基线 = BUILD-12 组6 提交后的 173 节点（text/id/next 未被组6/组2 触碰）。
-   谁动了既有节点当场 fail —— 这是 SH-0 的可执行回归。 */
+   谁动了既有节点当场 fail —— 这是 SH-0 的可执行回归。
+   ⚠️ SF-* 节点是设计稿 §8 组2.5 允许的第 3 类「插入」（投喂反应串），
+   不在 AS-4 守护范围内（它们不是"既有"节点）；其结构由 checkSfNodes 单独断言。 */
 const NODE_BASELINE_SHA = '25309c279e6be2a861ff13a264eeeae44d770daa9639c81c41ec6386f09e6210';
 
 function checkNodeBaseline(SD_DATA) {
   const nodes = (SD_DATA && SD_DATA.dialogue_nodes) || [];
-  const sig = nodes.map(function (n) {
+  const existing = nodes.filter(function (n) { return !/^SF-/.test(n.id || ''); });
+  const sig = existing.map(function (n) {
     return n.id + '|' + String(n.text == null ? '' : n.text) +
            '|' + String(n.next == null ? '' : n.next);
   }).join('\n');
   const got = crypto.createHash('sha256').update(sig, 'utf8').digest('hex');
   if (got !== NODE_BASELINE_SHA) {
-    fail(`[AS-4 / SH-0] 既有 173 节点的 text/id/next 被改动（基线 ${NODE_BASELINE_SHA.slice(0, 12)}…，实得 ${got.slice(0, 12)}…）—— 既有节点一个字都不许动`);
+    fail(`[AS-4 / SH-0] 既有节点（${existing.length} 个，非 SF-*）的 text/id/next 被改动（基线 ${NODE_BASELINE_SHA.slice(0, 12)}…，实得 ${got.slice(0, 12)}…）—— 既有节点一个字都不许动`);
   } else {
-    note(`[AS-4 / SH-0] 既有节点 ${nodes.length} 个 text/id/next 与基线逐字节一致`);
+    note(`[AS-4 / SH-0] 既有节点 ${existing.length} 个 text/id/next 与基线逐字节一致（SF-* 新增 ${nodes.length - existing.length} 个不在此列）`);
   }
+}
+
+/* ── SF-* 节点结构断言（ARG-BUILD-12 · 组2 真别名接线） ──────────────
+   31 句 SF 反应串（P0 19 + P1 12）逐字来自 arg_g1_sf_copy.md 第一节：
+     · 全部 kind:'line' / speaker:'her' / block:'SF'
+     · effects 无 horror（AS-1 已扫，这里补 class 标注语义）
+     · sf_reactions 每个 marker 的节点都在 dialogue_nodes 里
+     · 13 个 marker 都有反应串（不空） */
+function checkSfNodes(SD_DATA) {
+  const nodes = (SD_DATA && SD_DATA.dialogue_nodes) || [];
+  const byId = {};
+  nodes.forEach(function (n) { byId[n.id] = n; });
+  const sf = nodes.filter(function (n) { return /^SF-/.test(n.id || ''); });
+
+  /* ① 31 句全量 */
+  if (sf.length !== 31) {
+    fail(`[SF] SF-* 节点数应为 31（P0 19 + P1 12，实得 ${sf.length}）`);
+  }
+
+  /* ② 结构：kind / speaker / block / 无 horror / 无 next（不入链） */
+  sf.forEach(function (n) {
+    if (n.kind !== 'line') fail(`[SF] ${n.id} 必须 kind:"line"`);
+    if (n.speaker !== 'her') fail(`[SF] ${n.id} 必须 speaker:"her"（她的气泡）`);
+    if (n.block !== 'SF') fail(`[SF] ${n.id} 必须 block:"SF"`);
+    if (n.next != null) fail(`[SF] ${n.id} 不得有 next（插播节点不入静态链，FM-1）`);
+    if ((n.effects || []).some(function (e) { return e.type === 'horror'; })) {
+      fail(`[SF] ${n.id} 挂了 horror（A=0/B=0，投喂是回报不是异常）`);
+    }
+    if (String(n.text || '').length === 0) fail(`[SF] ${n.id} 文本为空`);
+    if (/\b(?:19|20)\d{2}\b/.test(String(n.text || ''))) {
+      fail(`[SF] ${n.id} 文本含绝对年份（X-2）`);
+    }
+  });
+
+  /* ③ sf_reactions：13 个 marker 全引用、引用不悬空、顺序即播报顺序 */
+  const map = (SD_DATA && SD_DATA.sf_reactions) || {};
+  const mkKeys = Object.keys(map);
+  if (mkKeys.length !== 13) {
+    fail(`[SF] sf_reactions 应登记 13 个 marker（实得 ${mkKeys.length}）`);
+  }
+  mkKeys.forEach(function (key) {
+    const ids = (map[key] && map[key].nodes) || [];
+    if (!ids.length) { fail(`[SF] ${key} 未登记 SF 反应节点`); return; }
+    ids.forEach(function (id) {
+      if (!byId[id]) fail(`[SF] ${key} 引用不存在的节点 ${id}`);
+      if (!/^SF-/.test(id)) fail(`[SF] ${key} 引用非 SF-* 节点 ${id}`);
+    });
+  });
+  /* 反向：每个 SF-* 节点都被至少一个 marker 引用（无孤儿反应串） */
+  const referenced = {};
+  mkKeys.forEach(function (key) {
+    ((map[key] && map[key].nodes) || []).forEach(function (id) { referenced[id] = true; });
+  });
+  sf.forEach(function (n) {
+    if (!referenced[n.id]) fail(`[SF] ${n.id} 未被任何 marker 引用（孤儿反应串）`);
+  });
+  note(`[SF] SF-* 节点 ${sf.length} 个 · sf_reactions 13 个 marker 全引用 · A=0/B=0`);
 }
 
 function checkFeedEngine(SD_DATA) {
@@ -1335,10 +1402,25 @@ function checkFeedEngine(SD_DATA) {
   /* ── AS-2：marker_table 只存 64 位十六进制（FD-H1） ────────────── */
   const mkFile = readIf('data/feed_markers.js');
   if (mkFile !== null) {
-    const valRe = /:\s*"([0-9a-f]{64})"/g;
+    /* 生成器输出形态：{ "mk_x": ["64hex", "64hex", ...] }
+       值 = 任意引号包裹的 64 位十六进制（含数组元素）。 */
+    const valRe = /"([0-9a-f]{64})"/g;
     const vals = [];
     let m;
     while ((m = valRe.exec(mkFile)) !== null) vals.push(m[1]);
+    /* 13 个 marker 键必须齐全，且每个至少 1 条哈希（任务书：13 标记全量） */
+    const mkKeysRe = /"mk_[a-z0-9_]+"/g;
+    const mkKeys = (mkFile.match(mkKeysRe) || []).map(function (s) { return s.replace(/"/g, ''); });
+    const wantKeys = [
+      'mk_silence_option', 'mk_counted_silence', 'mk_you_still_came',
+      'mk_v2_diff', 'mk_not_press', 'mk_door_closed', 'mk_silent_flag',
+      'mk_three_nights', 'mk_key_not_door', 'mk_no_save', 'mk_empty_room',
+      'mk_prologue_silence', 'mk_xk'
+    ];
+    wantKeys.forEach(function (k) {
+      if (mkKeys.indexOf(k) < 0) fail(`[AS-2] feed_markers.js 缺少 marker 键 ${k}（13 标记全量要求）`);
+    });
+    if (!vals.length) fail('[AS-2 / FD-H1] feed_markers.js 未找到任何 64 位哈希（投喂闭环 T-hit 不可达）');
     /* 若出现疑似明文别名（含中文 / 非 hex 的长串值）→ fail。
        只盯【值位】：键是固定结构名（markers / SD_FEED_MARKERS）。 */
     const aliasRe = /:\s*["']([^"']{4,})["']/g;
@@ -1351,7 +1433,7 @@ function checkFeedEngine(SD_DATA) {
       if (!/^[0-9a-f]{64}$/.test(v)) leaked.push(v);
     }
     if (leaked.length) fail(`[AS-2 / FD-H1] feed_markers.js 出现疑似明文别名：${leaked.slice(0, 3).join(', ')}`);
-    note(`[AS-2] feed_markers.js 哈希值 ${vals.length} 个（全部 64 位十六进制）`);
+    note(`[AS-2] feed_markers.js 哈希值 ${vals.length} 个（13 标记 ${mkKeys.filter(function (k) { return wantKeys.indexOf(k) >= 0; }).length} 个键，全部 64 位十六进制）`);
   }
 
   /* ── AS-1：SF-* 节点 effects 不得出现 {type:'horror'} ─────────── */
@@ -1383,9 +1465,16 @@ function checkFeedEngine(SD_DATA) {
   }
 
   /* ── AS-8：全站无 gonglue / gl_，且 mk_* 键名不含 那两字作品名 ──
-     全站 gonglue/gl_ 已由 ① 全文件裸扫覆盖；这里补 mk_* 键名判定。 */
-  const mkKeys = (src.match(/mk_[a-z_0-9]+/g) || []);
-  if (!mkKeys.length) note('[AS-8] sd_feed.js 未见 mk_* 键名（骨架期可能为空）');
+     全站 gonglue/gl_ 已由 ① 全文件裸扫覆盖；这里补 mk_* 键名判定。
+     键名实际住在 data/feed_markers.js（生成器输出）与内容层 sf_reactions，
+     sd_feed.js 本身不写字面量键名（引擎通用读表）。 */
+  const mkKeysAll = [];
+  [src, readIf('data/feed_markers.js') || '', readIf('data/sd_slice.js') || '']
+    .forEach(function (t) {
+      (t.match(/mk_[a-z_0-9]+/g) || []).forEach(function (k) { if (mkKeysAll.indexOf(k) < 0) mkKeysAll.push(k); });
+    });
+  if (!mkKeysAll.length) note('[AS-8] 未找到任何 mk_* 键名（真别名未生成？）');
+  else note(`[AS-8] mk_* 键名 ${mkKeysAll.length} 个（含 feed_markers / sf_reactions），零那两字作品名`);
   note('投喂引擎红线：AS-1/2/3/5/6/8 + CF-3（SC-029 idiolect 排除 / SD-068 b11 优先 / SC-035 a1_probe 隔离）');
 }
 
@@ -1426,6 +1515,7 @@ function main() {
     checkHash(SD_DATA, sandbox);
     checkFeedSourceX1(SD_DATA);                // ARG-BUILD-12 · 组6 X-1 出处 ID 巡检
     checkNodeBaseline(SD_DATA);                // ARG-BUILD-12 · AS-4 SH-0 节点回归
+    checkSfNodes(SD_DATA);                     // ARG-BUILD-12 · SF-* 反应节点结构（组2）
     checkFeedEngine(SD_DATA);                  // ARG-BUILD-12 · 组2 投喂引擎红线（AS-1~8 + CF-3）
   }
 

@@ -727,7 +727,95 @@
          R8/R10：只显示，不阻断。 */
       { id:'SD-090', block:'G1-5', speaker:'sys', kind:'line', render:false,
         text:'页脚小字：下次可访问时间：{now+6h}', tokens:['{now+6h}'],
-        effects:[{type:'soft_countdown'},{type:'delay',ms:400}], next:null }
+        effects:[{type:'soft_countdown'},{type:'delay',ms:400}], next:null },
+
+      /* ══════════════════════════════════════════════════════════════════
+         ARG-BUILD-12 · 组2 真别名接线（Wave 2 · G 组）
+         SF-* 节点：投喂命中（T-hit）后由 sd_dialogue 插播的反应串。
+         真源：design/concept/arg_g1_sf_copy.md 第一节（31 句，逐字）。
+         · 全部 kind:'line'、speaker:'her'（她的气泡）
+         · 恐怖席位 A=0 / B=0（§1.8 本机制申请 0 席）—— effects 无 horror（AS-1）
+         · 【不在静态可达链上】：无 next —— 由 marker 的 sf_reactions 引用，
+           playInterlude 通用插播，播完回原 next（FM-1：链结构永不因投喂改变）。
+         · 文本外层「」为稿子标注格式，落节点时已剥除（与既有节点口吻一致）。
+         · FD-H3：反应不复述被喂片段原文；{FRAG} 引用块由引擎渲染。
+         ══════════════════════════════════════════════════════════════════ */
+
+      /* ── P0-1 mk_silence_option · SF-001…003 ── */
+      { id:'SF-001', block:'SF', speaker:'her', kind:'line',
+        text:'这句。我认得。' },
+      { id:'SF-002', block:'SF', speaker:'her', kind:'line',
+        text:'你说它从第 3 页来。我这里也存着这一句，只是我没标过页。' },
+      { id:'SF-003', block:'SF', speaker:'her', kind:'line',
+        text:'……原来它一直算一个选项。我之前没往那想过。' },
+      /* ── P0-2 mk_counted_silence · SF-010…013 ── */
+      { id:'SF-010', block:'SF', speaker:'her', kind:'line',
+        text:'这句。我见过两次。' },
+      { id:'SF-011', block:'SF', speaker:'her', kind:'line',
+        text:'一次在整理帖的第 2 页，一次在附件文本里。两处都留着它。' },
+      { id:'SF-012', block:'SF', speaker:'her', kind:'line',
+        text:'它说，有人数过你没出声的次数。' },
+      { id:'SF-013', block:'SF', speaker:'her', kind:'line',
+        text:'……我也数着。只是我没地方写下来。' },
+      /* ── P0-3 mk_you_still_came · SF-020…023（D-G1R-06：不点破） ── */
+      { id:'SF-020', block:'SF', speaker:'her', kind:'line',
+        text:'这句。我没太懂它对着谁说。' },
+      { id:'SF-021', block:'SF', speaker:'her', kind:'line',
+        text:'它像在等一个人回来。但我不确定它等的是谁。' },
+      { id:'SF-022', block:'SF', speaker:'her', kind:'line',
+        text:'你说从论坛带回来的。那上面的人，好像常对谁说这种话。' },
+      { id:'SF-023', block:'SF', speaker:'her', kind:'line',
+        text:'……也许只是随口一句。我读不准。' },
+      /* ── P0-4 mk_v2_diff · SF-030…032 ── */
+      { id:'SF-030', block:'SF', speaker:'her', kind:'line',
+        text:'你带回来的这句。是在问两个版本之间，有没有人动过手脚。' },
+      { id:'SF-031', block:'SF', speaker:'her', kind:'line',
+        text:'我手边有一份，和另一份对过。第 4 页多出来一句，别处没有。' },
+      { id:'SF-032', block:'SF', speaker:'her', kind:'line',
+        text:'……所以有人改过。改的地方，藏在一句没署名的里面。' },
+      /* ── P0-6 mk_door_closed · SF-040…042（唯一需真解码） ── */
+      { id:'SF-040', block:'SF', speaker:'her', kind:'line',
+        text:'你给我的这段是反着写的。翻过来，说的是一扇没开的门。' },
+      { id:'SF-041', block:'SF', speaker:'her', kind:'line',
+        text:'那份实测里也写到它——走到门前，门是关着的。' },
+      { id:'SF-042', block:'SF', speaker:'her', kind:'line',
+        text:'……门没开。但有人确实到了门口。' },
+      /* ── P1-7 mk_silent_flag · SF-050…051 ── */
+      { id:'SF-050', block:'SF', speaker:'her', kind:'line',
+        text:'你带回来的这段，我读过了。' },
+      { id:'SF-051', block:'SF', speaker:'her', kind:'line',
+        text:'……所以第三个选项，就是不选。它一直在那，只是没写字。' },
+      /* ── P0-5 mk_not_press · SF-060…061 ── */
+      { id:'SF-060', block:'SF', speaker:'her', kind:'line',
+        text:'这句。我读过了。' },
+      { id:'SF-061', block:'SF', speaker:'her', kind:'line',
+        text:'……不按，有时候比按下去更算数。' },
+      /* ── P1-8 mk_three_nights · SF-070…071 ── */
+      { id:'SF-070', block:'SF', speaker:'her', kind:'line',
+        text:'这句。连看三晚，一封不取。' },
+      { id:'SF-071', block:'SF', speaker:'her', kind:'line',
+        text:'……不去取，也算去过了。不做事，也是一次做事。' },
+      /* ── P1-9 mk_key_not_door · SF-080…081 ── */
+      { id:'SF-080', block:'SF', speaker:'her', kind:'line',
+        text:'你带回来的。把钥匙和门，分成了两件事。' },
+      { id:'SF-081', block:'SF', speaker:'her', kind:'line',
+        text:'……钥匙开得了锁，开不了门后面的事。它自己说清了。' },
+      /* ── P1-10 mk_no_save · SF-090…091 ── */
+      { id:'SF-090', block:'SF', speaker:'her', kind:'line',
+        text:'这句。真结局，不存盘。' },
+      { id:'SF-091', block:'SF', speaker:'her', kind:'line',
+        text:'……所以你看到的，永远停在到门前那一刻。读过的档，到不了。' },
+      /* ── P1-11 mk_empty_room · SF-100…101 ── */
+      { id:'SF-100', block:'SF', speaker:'her', kind:'line',
+        text:'你带回来的。黑屏 8.7 秒，一声轻响，然后空房间。' },
+      { id:'SF-101', block:'SF', speaker:'her', kind:'line',
+        text:'……有人记下了那一刻。黑屏里那一声，比画面更清楚。' },
+      /* ── P1-13 mk_xk · SF-110（D-G1R-05：她读不懂这是个名字） ── */
+      { id:'SF-110', block:'SF', speaker:'her', kind:'line',
+        text:'这个名字。我读不出它是谁。它只是几个字，我不认得背后的人。' },
+      /* ── P1-12 mk_prologue_silence · SF-120（单句） ── */
+      { id:'SF-120', block:'SF', speaker:'her', kind:'line',
+        text:'序章里也用一次沉默。所以从头到尾，它都在教同一件事。' }
     ],
 
     /* ── §5 /save flag 表 ────────────────────────────────────────────── */
@@ -814,6 +902,28 @@
       B_declared: ['B-K1', 'B-K2', 'B-K3'],
       allocated_from: { 'B-K1': 'B-29', 'B-K2': 'B-31', 'B-K3': 'B-32' },
       note: 'G-1 关系弧专用。A=0 硬主张（HB-6）。B-K2 四个载体节点共占一席，非四席。'
+    },
+
+    /* ── ARG-BUILD-12 · SF 反应映射（组2 真别名接线 · Wave 2）─────────
+       marker key → 插播的 SF-* 节点 ID 数组（顺序即播报顺序）。
+       · 只存节点 ID，不存文本 —— 文本唯一真源是 dialogue_nodes 的 SF-*
+         节点（FD-H3：SF 反应不复述被喂片段，{FRAG} 由引擎渲染）。
+       · 引擎（sd_feed.js）通用读此表，不认具体 ID 的分支（§8 组2.5）。
+       · 键名 mk_* 为设计稿既定命名（FD-H4），非明文标记。 */
+    sf_reactions: {
+      'mk_silence_option':    { nodes: ['SF-001', 'SF-002', 'SF-003'] },
+      'mk_counted_silence':   { nodes: ['SF-010', 'SF-011', 'SF-012', 'SF-013'] },
+      'mk_you_still_came':    { nodes: ['SF-020', 'SF-021', 'SF-022', 'SF-023'] },
+      'mk_v2_diff':           { nodes: ['SF-030', 'SF-031', 'SF-032'] },
+      'mk_door_closed':       { nodes: ['SF-040', 'SF-041', 'SF-042'] },
+      'mk_silent_flag':       { nodes: ['SF-050', 'SF-051'] },
+      'mk_not_press':         { nodes: ['SF-060', 'SF-061'] },
+      'mk_three_nights':      { nodes: ['SF-070', 'SF-071'] },
+      'mk_key_not_door':      { nodes: ['SF-080', 'SF-081'] },
+      'mk_no_save':           { nodes: ['SF-090', 'SF-091'] },
+      'mk_empty_room':        { nodes: ['SF-100', 'SF-101'] },
+      'mk_xk':                { nodes: ['SF-110'] },
+      'mk_prologue_silence':  { nodes: ['SF-120'] }
     },
 
     /* ── 三击禁令（字符串级，J-9 自动扫描） ────────────────────────────

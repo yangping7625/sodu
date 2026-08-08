@@ -589,12 +589,8 @@
         applyFlags(n.set_flags); go(fi.next || n.next);
         return;
       }
-      /* 首次命中：插播 {FRAG} 引用块 + marker 反应（反应串骨架期为空）。
+      /* 首次命中：插播 {FRAG} 引用块 + marker 反应。
          FM-3：首次命中 → 设备侧 记录/ 升格（sh_fm.js 由 SD 侧触发）。 */
-      if (verdict.frag) {
-        var fragEl = R().fragBlock(verdict.frag, n.id + '.feed.frag');
-        try { if (SD.Feed.fragHit) SD.Feed.fragHit(fragEl); } catch (e) {}
-      }
       /* ⚠️ CF-2（D-G1R-01 甲案）：首次投喂（sd_b1_fed 首次置位）→ 快照
          trs_seed（此刻的 b6/b7/b8）。此后 TRS 的 P_set 只用快照值 +
          b2/b3/b9 —— 受邀后才翻的地方不再算越界（"她开口邀请之前
@@ -603,10 +599,32 @@
         S().flag('sd_b1_fed', true);
         try { if (SD.State.seedTrs) SD.State.seedTrs(); } catch (e) { /* 静默 */ }
       }
-      /* ⚠️ 引擎骨架期：marker.reaction 为空（真别名 + SF 反应等文策渊）。
-         此处保持通用跳回 —— 播完回原 next，链结构不变。 */
-      applyFlags(n.set_flags);
-      go(fi.next || n.next);
+      /* FE-03（TW）：{FRAG} 渲染前过 tripwire_guard —— 若当前屏处于
+         TW-1/2/3 禁令窗口（屏尾已出现禁词插值形态），一律不渲染引用块，
+         只播她的反应文字（避免把谜底 / 时间戳同屏带出）。 */
+      var fragOk = !fragForbidden();
+      if (verdict.frag && fragOk) {
+        var fragEl = R().fragBlock(verdict.frag, n.id + '.feed.frag');
+        try { if (SD.Feed.fragHit) SD.Feed.fragHit(fragEl); } catch (e) {}
+      }
+      /* FM-3 / GD-5：物理回报 —— 记录/ 升格。首次命中写第一行，
+         后续命中末尾追加一行（{FRAG} 截断 24 字，无序号/总数/时间戳）。
+         ⚠️ tripwire 禁令窗口内也不写记录行（{FRAG} 未上屏就不落盘）。 */
+      if (verdict.frag && fragOk) {
+        try { S().pushFeedLog(fragLogLine(verdict.frag)); } catch (e) { /* 静默 */ }
+      }
+      /* 播 marker 的 SF 反应串（Wave 2 真别名接线）：先 {FRAG} 引用块，
+         再依次播 SF 气泡，播完回原 next（FM-1：链结构永不因投喂改变）。 */
+      var sfLines = sfLinesOf(verdict.marker.sfNodes);
+      if (sfLines.length) {
+        playInterlude(sfLines, n.id + '.feed.sf', function () {
+          applyFlags(n.set_flags);
+          go(fi.next || n.next);
+        });
+      } else {
+        applyFlags(n.set_flags);
+        go(fi.next || n.next);
+      }
       return;
     }
 
@@ -644,6 +662,43 @@
         wait(i === lines.length ? 600 : 400, false, step);
       });
     })();
+  }
+
+  /* ── ARG-BUILD-12 · 组2 真别名接线辅助 ──────────────────────────────
+     sfLinesOf：marker 的 SF 节点 ID 数组 → 逐条取文本（对话机不认识
+     具体节点 ID，只按 ID 查表取文本 —— 通用能力）。
+     fragLogLine：{FRAG} 截断 24 字（GD-5 / V-F2：无引号 / 序号 / 时间 / 来源）。
+     fragForbidden：FE-03 tripwire 守卫 —— 当前屏尾出现禁词插值形态
+     时 {FRAG} 不渲染（只播反应文字）。 */
+  function sfLinesOf(ids) {
+    var out = [];
+    (ids || []).forEach(function (id) {
+      var n = node(id);
+      if (n && typeof n.text === 'string') out.push(n.text);
+    });
+    return out;
+  }
+  var FEED_LOG_MAX = 24;
+  function fragLogLine(frag) {
+    var s = String(frag == null ? '' : frag);
+    var arr = Array.from ? Array.from(s) : s.split('');
+    return arr.slice(0, FEED_LOG_MAX).join('');
+  }
+  function fragForbidden() {
+    try {
+      var pairs = (g.SD_DATA && g.SD_DATA.tripwire_pairs) || [];
+      var tail = R().screenTail ? R().screenTail() : '';
+      for (var i = 0; i < pairs.length; i++) {
+        var forb = (pairs[i] || {}).forbid_same_screen || [];
+        for (var j = 0; j < forb.length; j++) {
+          var item = forb[j];
+          if (typeof item !== 'string' || item.indexOf('{') !== 0) continue;
+          var resolved = interp(item);
+          if (resolved && resolved !== item && tail.indexOf(resolved) >= 0) return true;
+        }
+      }
+    } catch (e) { /* 静默：守卫失败宁可放行 */ }
+    return false;
   }
 
   /* 投喂卡三选一 */

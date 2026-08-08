@@ -604,14 +604,23 @@ function main() {
     ok(F.normalize('  2011/2/9 论坛  ') === '论坛', 'S20d ★normalize 处理斜杠日期与空白');
     ok(F.normalize('2011年2月9日 归档') === '归档', 'S20e ★normalize 处理中文日期');
 
-    /* 四层判定（骨架期 marker 空 → T-hit 不可达） */
+    /* 四层判定（Wave 2 真别名接线后：marker 13 条全量 → T-hit 可达） */
     ok(F.classify('短').tier === 'U-0', 'S20f ★U-0：规范化后 <4 字 → 忽略');
     ok(F.classify('随便聊聊今天天气').tier === 'U-2', 'S20g ★U-2：无关输入走普通聊天');
     ok(F.classify('那个论坛的路线存档在哪里').tier === 'U-1',
       'S20h ★U-1：含类词（论坛/路线/存档）→ 近场未命中');
     const tHit = F.classify('沉默也是一种选项');
-    ok(tHit.tier === 'U-2' || tHit.tier === 'U-0',
-      'S20i ★骨架期 T-hit 不可达（marker 空 → 走 U-0/U-2，真别名等文策渊）');
+    ok(tHit.tier === 'T-hit' && tHit.marker && tHit.marker.key === 'mk_silence_option',
+      'S20i ★★Wave 2 T-hit 可达（真别名接线：沉默也是一种选项 → mk_silence_option）');
+    ok(tHit.tier === 'T-hit' && (tHit.marker.sfNodes || []).length === 3,
+      `S20i2 ★T-hit 携带 SF 反应串（${tHit.tier === 'T-hit' ? tHit.marker.sfNodes.length : 0} 句，SF-001/002/003）`);
+    /* 冗余别名（含句号 / 异写）也应命中同一 marker（FD-H2） */
+    ok(F.classify('沉默也是一种选项。').marker &&
+       F.classify('沉默也是一种选项。').marker.key === 'mk_silence_option',
+      'S20i3 ★含句号别名同样命中（normalize 删标点，FD-H2）');
+    ok(F.classify('THE DOOR IS CLOSED').marker &&
+       F.classify('THE DOOR IS CLOSED').marker.key === 'mk_door_closed',
+      'S20i4 ★英文原文别名命中 mk_door_closed（ROT13 解码后）');
 
     /* {FRAG}：80 字截断 + …… + 日期剥离（AS-3） */
     const fragText = F.fragText('2011-02-09 ' + '长'.repeat(100));
@@ -765,6 +774,73 @@ function main() {
           `S21f ★真正越界玩家不可达 E-true（实得「${endingT}」）`);
       });
     });
+
+    /* ── S22 ★ARG-BUILD-12 · 组2 真别名接线端到端（T-hit 闭环）──────
+       {FRAG} 引用块 → SF 反应串播报 → 记录/ 升格（feed_log）→ 回原 next。
+       FM-1：链结构永不因投喂改变。GD-5：首次命中写第一行（24 字截断）。
+       ⚠️ 「回原 next」验证：submitFree 内部的 go 是模块闭包，外部 override
+       SD.Dialogue.go 不生效 —— 改用【合成 fi.next 哨兵】+ onEnd 打点：
+       播完若 go 回到 fi.next，哨兵节点不存在 → onEnd → SD.onDialogueEnd。 */
+    const envG = createEnv({
+      siteRoot: site.siteRoot, pagePath: site.page('sd/index.html'), storage: true
+    });
+    envG.runScripts({ settleMs: 0 });
+    const SG = envG.win.SD.State;
+    const DG = envG.win.SD.Dialogue;
+    const sc029G = envG.win.SD_DATA.dialogue_nodes.find(function (nn) { return nn.id === 'SC-029'; });
+    ok(!!sc029G && sc029G.free_input && sc029G.free_input.next === 'SN-030',
+      'S22a 前置：SC-029（投喂窗口 · free_input.next=SN-030）');
+    /* 防 onEnd 续弧跳走（哨兵验证需要 onEnd 直达 onDialogueEnd） */
+    SG.markRead('node:SD-001');
+    let endedG = 0;
+    envG.win.SD.onDialogueEnd = function () { endedG++; };
+    const sentinelFi = { enabled: true, capture: 'input_history', max_len: 60, next: '__SENTINEL__' };
+
+    envG.withClock(() => {
+      DG.submitFree(sc029G, sentinelFi, '沉默也是一种选项');
+      envG.clock.runUntilIdle();
+    });
+    const streamG = envG.doc.getElementById('sd-stream');
+    const fragsG = streamG.querySelectorAll('.sd-frag');
+    ok(fragsG.length === 1, `S22b ★{FRAG} 引用块已渲染（${fragsG.length} 个）`);
+    ok(!!fragsG[0] && (fragsG[0].textContent || '').indexOf('沉默也是一种选项') >= 0,
+      'S22c ★{FRAG} 回显玩家原输入（日期剥离 + 原样进出）');
+    const sfTextG = streamG.textContent || '';
+    ok(sfTextG.indexOf('这句。我认得。') >= 0, 'S22d ★SF-001 反应已播报');
+    ok(sfTextG.indexOf('……原来它一直算一个选项。我之前没往那想过。') >= 0,
+      'S22e ★SF-003 反应已播报（SF 串按序播完）');
+    const flG = SG.feedLog();
+    ok(flG.length === 1, `S22f ★GD-5 首次命中 → 记录/ 写入 1 行（实得 ${flG.length}）`);
+    ok(flG[0] && flG[0].length <= 24 && flG[0].indexOf('沉默也是一种选项') >= 0,
+      `S22g ★记录行 = {FRAG} 截断 24 字（实得「${flG[0]}」）`);
+    ok(SG.hasFlag('sd_b1_fed'), 'S22h ★首次投喂置位 sd_b1_fed（CF-2 快照锚点）');
+    ok(SG.trsSeed() !== null, 'S22i ★trs_seed 已快照');
+    ok(endedG === 1,
+      `S22j ★★FM-1 播完回原 next（go 回哨兵 → onEnd 触发，实得 ${endedG} 次）`);
+
+    /* 第二次命中同一标记 → U-3 重复投喂：「这一段我读过了。」且 feed_log 不再追加 */
+    envG.withClock(() => {
+      DG.submitFree(sc029G, sentinelFi, '沉默也是一种选项。');
+      envG.clock.runUntilIdle();
+    });
+    const streamG2 = envG.doc.getElementById('sd-stream');
+    ok((streamG2.textContent || '').indexOf('这一段我读过了。') >= 0,
+      'S22k ★U-3 第 2 次：「这一段我读过了。」（FD-P2 喂错/重复无惩罚）');
+    ok(SG.feedLog().length === 1,
+      `S22l ★重复投喂不再追加记录行（feed_log 仍 ${SG.feedLog().length} 行）`);
+    ok(endedG === 2, `S22m ★U-3 重复投喂同样回原 next（onEnd ${endedG} 次）`);
+
+    /* 第三次 → 完全静默（走 U-2，含 idiolect + echo —— FD-P2） */
+    envG.withClock(() => {
+      DG.submitFree(sc029G, sentinelFi, '沉默也是一种选项。');
+      envG.clock.runUntilIdle();
+    });
+    const streamG3 = envG.doc.getElementById('sd-stream');
+    const sfCount = (streamG3.textContent.match(/这句。我认得。/g) || []).length;
+    ok(endedG === 3 &&
+       (streamG3.textContent || '').indexOf('这一段我读过了。') === (streamG3.textContent || '').lastIndexOf('这一段我读过了。') &&
+       sfCount === 1,
+      'S22n ★U-3 第 3 次起完全静默（不再插播，只回原 next）');
 
     report();
   } finally {

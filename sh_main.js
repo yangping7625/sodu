@@ -69,6 +69,12 @@
     if (typeof sh.framing_seen !== 'boolean') sh.framing_seen = false;
     if (typeof sh.framing_window_seen !== 'boolean') sh.framing_window_seen = false;
 
+    /* ARG-BUILD-12 · FM-3 / GD-5：记录/ 的内容（{FRAG} 截断 24 字逐条）。
+       素读侧在首次命中时 pushFeedLog 写入；本机侧读同源键决定
+       「文件 › 记录/」能否打开（空 = 保持「无法打开。」）。
+       仍在本键内，SH-7 守。 */
+    if (!(o.feed_log instanceof Array)) o.feed_log = [];
+
     if (!o.apps || typeof o.apps !== 'object') o.apps = {};
     if (!o.apps.qsw) o.apps.qsw = {};
     if (!o.apps.soda) o.apps.soda = {};
@@ -207,7 +213,13 @@
       sub: subFrame,
       seen: seen,
       revealed: isRevealed,
-      narrow: narrow
+      narrow: narrow,
+      /* ARG-BUILD-12 · FM-3 / GD-5：记录/ 内容（{FRAG} 截断 24 字）。
+         读同源键（ST-2 既有裁决：不走 postMessage，父级读同源存档）。 */
+      feedLog: function () {
+        var o = read();
+        return (o.feed_log instanceof Array) ? o.feed_log.slice() : [];
+      }
     };
   }
 

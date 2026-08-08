@@ -347,6 +347,36 @@ function main() {
     ok(fmView.querySelector('[data-sh-msg]').textContent === '空的。',
       'G9 再点一条 → 反馈行内容已更新');
 
+    /* ══ G16 · 组2 真别名接线：记录/ 升格（FM-3 / GD-5 · ARG-BUILD-12）══
+       首次命中后素读侧写入 feed_log（{FRAG} 截断 24 字）→ 本机侧读同源键
+       （ST-2：不走 postMessage），文件 › 记录/ 从「无法打开。」升格为可打开，
+       内有一行；后续命中多一行（无序号 / 总数 / 时间戳 · R2 / V-F2）。 */
+    const envL2 = home(site, { seedStore: {
+      'sudu_save_v1': JSON.stringify({ v: 1, created_at: 1, updated_at: 2,
+        shell: { booted_at: 1000, framing_seen: true, framing_window_seen: true, win_state: {} },
+        feed_log: ['沉默也是一种选项', '她数过你沉默的次数'] })
+    } });
+    envL2.win.SH.Home.open('fm');
+    const fmView2 = pane(envL2, 'fm').querySelector('[data-sh-view]');
+    const logRow2 = fmView2.querySelector('[data-sh-row="记录/"]');
+    ok(!!logRow2, 'G16 ★GD-5 记录/ 行恒在列表（不消失、无「新」标记）');
+    logRow2.dispatch('click');
+    const logView = fmView2.querySelector('[data-sh-log]');
+    ok(!!logView, 'G17 ★★GD-5 首次命中后记录/ 从「无法打开。」升格为可打开');
+    ok(!fmView2.querySelector('[data-sh-msg]') ||
+       fmView2.querySelector('[data-sh-msg]').textContent !== '无法打开。',
+      'G18 ★升格后不再报「无法打开。」');
+    const logRows = logView.querySelectorAll('[data-sh-logrow]').map((r) => r.getAttribute('data-sh-logrow'));
+    ok(logRows.length === 2 && logRows[0] === '沉默也是一种选项' && logRows[1] === '她数过你沉默的次数',
+      `G19 ★记录内容 = {FRAG} 逐行（实得 ${logRows.join(' / ') || '空'}）`);
+    const logTxt = logView.textContent || '';
+    ok(!/共\s*\d|第\s*\d|条|:|\d{1,2}:\d{2}/.test(logTxt.replace('← 上一层', '')),
+      'G20 ★★R2 / V-F2 记录无总数 / 序号 / 时间戳（实得「' + logTxt.trim().slice(0, 40) + '」）');
+    /* 返回上一层 */
+    logView.querySelector('[data-sh-up]').dispatch('click');
+    ok(!fmView2.querySelector('[data-sh-log]'), 'G21 「上一层」关闭记录视图');
+    ok(fmView2.getAttribute('data-hidden') === null, 'G22 回到一级列表');
+
     /* 二级：内建列表 → 内嵌一份页面，顶端留「上一层」 */
     fmView.querySelector('[data-sh-row="关于本机.txt"]').dispatch('click');
     const lvl = pane(envF, 'fm').querySelector('[data-sh-lvl]');

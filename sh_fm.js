@@ -85,7 +85,12 @@
 
     row(v, '记录/', function () {
       api.seen('log');
-      say(v, '无法打开。');
+      /* ARG-BUILD-12 · FM-3 / GD-5：首次命中后从「无法打开。」升格为可打开。
+         内容 = 素读侧写入的 {FRAG} 截断 24 字（无序号 / 总数 / 时间戳 · R2）。
+         空（未命中过任何标记）→ 保持既有「无法打开。」纯前端行为。 */
+      var lines = (typeof api.feedLog === 'function') ? api.feedLog() : [];
+      if (!lines.length) { say(v, '无法打开。'); return; }
+      openLogView(v, lines);
     });
 
     dead(v, '');
@@ -114,6 +119,39 @@
     return v;
   }
 
-  SH.Views = { file: mountFile, archive: mountArchive, say: say };
+  /* ── 记录/ 升格后的二级视图（ARG-BUILD-12 · FM-3 / GD-5）────────────
+     列表形态与文件 app 其它行完全一致（V-F1：同字号 / 同行高 / 同 1px 分隔）。
+     每行 = {FRAG} 截断 24 字，无引号、无序号、无时间、无来源（V-F2）。
+     ⚠️ R2：无总数、无「共 N 条」、无排序、无删除、无「新」标记 ——
+     空态就是既有的「无法打开。」（V-F3）。它不是新界面，是同一个列表
+     多了几行。 */
+  function openLogView(v, lines) {
+    v.setAttribute('data-hidden', '1');
+    var lvl = doc.createElement('div');
+    lvl.className = 'sh-lvl';
+    lvl.setAttribute('data-sh-log', '');
+
+    var up = doc.createElement('button');
+    up.setAttribute('type', 'button');
+    up.className = 'sh-row sh-row--up';
+    up.setAttribute('data-sh-up', '');
+    up.textContent = '← 上一层';
+    up.addEventListener('click', function () {
+      if (lvl.parentNode) lvl.parentNode.removeChild(lvl);
+      v.removeAttribute('data-hidden');
+    });
+    lvl.appendChild(up);
+
+    (lines || []).forEach(function (t) {
+      var d = doc.createElement('div');
+      d.className = 'sh-row sh-row--dead';
+      d.setAttribute('data-sh-logrow', t);
+      d.textContent = t;
+      lvl.appendChild(d);
+    });
+    v.appendChild(lvl);
+  }
+
+  SH.Views = { file: mountFile, archive: mountArchive, say: say, openLogView: openLogView };
 
 })(typeof window !== 'undefined' ? window : globalThis);
