@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <title>素读 · 轻助手</title>
+  <meta name="description" content="素读 · 轻助手 —— 一个只会读东西的小程序。">
+  <meta name="robots" content="index,follow">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../css/sd_base.css">
+  <link rel="stylesheet" href="../css/sd_chat.css">
+</head>
+<!-- DX-01 同步项：静态标注地层，消除首帧主题跳变。
+     sd_router.js 的 setAttribute 保留不动（幂等，作渐进增强）。
+     ARG-BUILD-11 / S15：本页由 `/` 迁至 `/sd/`，内容零改动，
+     仅把资源引用改为相对上一级（子路径安全 · 红线⑨）。 -->
+<body data-site="assistant">
+  <div class="sd-wrap">
+    <header class="sd-head">素读 · 轻助手</header>
+
+    <main id="sd-stream" class="sd-stream" aria-live="polite"></main>
+
+    <p class="sd-soft" data-sd-soft></p>
+
+    <div id="sd-dock" class="sd-dock"></div>
+
+    <!-- /save 常驻入口（ARG-BUILD-08）：默认【空】。
+         只有她在对话里递出过存档之后，sd_app.js 才往这里写一行。
+         未被邀请前这里什么都没有 —— 不是导航条，是她没关的那扇门。 -->
+    <p class="sd-ret" data-sd-ret></p>
+
+    <footer class="sd-foot" data-sd-footer></footer>
+  </div>
+
+  <!-- 内容层（只读）：全局 window.SD_DATA -->
+  <script src="../data/sd_slice.js"></script>
+  <!-- 投喂标记哈希表（只存 sha256，明文在 design/ · FD-H1） -->
+  <script src="../data/feed_markers.js"></script>
+  <!-- 基础设施层 -->
+  <script src="../js/sd_state.js"></script>
+  <script src="../js/sd_timeline.js"></script>
+  <script src="../js/sd_idiolect.js"></script>
+  <!-- 行为 / 渲染 / 谜题 -->
+  <script src="../js/sd_behavior.js"></script>
+  <!-- 结局判定系统（G-1 · SD-088 挂点 · 只写不读 / R2 零泄漏） -->
+  <script src="../js/sd_ending.js"></script>
+  <script src="../js/sd_render.js"></script>
+  <script src="../js/sd_puzzle.js"></script>
+  <!-- 投喂引擎（组2 · ARG-BUILD-12：normalize / 四层判定 / feed_hooks） -->
+  <script src="../js/sd_feed.js"></script>
+  <!-- 对话机 + 路由 -->
+  <script src="../js/sd_dialogue.js"></script>
+  <script src="../js/sd_router.js"></script>
+  <!-- 右下角常驻系统时钟 + 点击设时间（ARG-BUILD-05-rev）
+       ARG-BUILD-11 / CL-3：在 iframe 内自检让位桌面时钟，脚本保留不删。 -->
+  <script src="../js/sd_clock.js"></script>
+  <!-- 本机桥接（子侧 · 只在 /sd/ 加载 · BR-3：其余页面一律不得握手） -->
+  <script src="../sh_bridge.js"></script>
+  <!-- 主对话页装配 -->
+  <script src="../js/sd_app.js"></script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <title>这里没有东西</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/sd_base.css">
+  <link rel="stylesheet" href="css/sd_404.css">
+</head>
+<!-- DX-01 同步项：静态标注地层（本页与 index 同属 assistant）。 -->
+<body data-site="assistant">
+  <div class="sd-wrap">
+    <main class="sd-404">
+      <p class="sd-404__title">这里没有东西。</p>
+      <a class="sd-404__link" href="./">回到开头</a>
+    </main>
+    <!--
+      DX-02（P0 · 合规）· 方案乙：A2 虚构声明写死为静态文本。
+
+      原缺陷：renderFooter() 只在 SD.Router.boot() 内被调用，而 boot() 的调用点
+      仅有 sd_app.js（index）与 sd_savepage.js（save）。本页两者都不加载，
+      故 <footer data-sd-footer> 永远为空 —— A1–A6 合规链条在此断裂。
+
+      选乙而非甲的理由：这是防穿帮的安全页，常在网络异常时被触达，
+      应当零 JS 依赖 —— 脚本全部失败时仍然完整、仍然自洽的页面，
+      才是真正的兜底。同时本页原先加载 9 个脚本却不执行任何逻辑，一并移除。
+
+      ⚠️ 双写点（DUAL-WRITE）：下面这行文案必须【逐字等同】
+         data/sd_slice.js 的 SD_DATA.footer_notice。
+         已纳入 J-9 巡检（tests/spec.js → checkDualWriteNotice），
+         改一处漏一处会直接 fail，不要手动绕过。
+    -->
+    <footer class="sd-foot" data-sd-footer>
+      <p class="sd-notice">虚构作品的一部分。本机的钟还在走。</p>
+    </footer>
+  </div>
+</body>
+</html>

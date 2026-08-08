@@ -1,0 +1,14 @@
+{
+  "name": "sodu-gonglue-web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "《素读》网页谜题（ARG-BUILD-12 · Wave 3）。Web 端零运行时依赖；vitest 仅为开发期「跑法」包装（devDependencies）。",
+  "scripts": {
+    "test": "vitest run",
+    "test:node": "node tests/spec.js && node tests/smoke_main.js && node tests/smoke_save.js && node tests/smoke_shell.js",
+    "regress": "bash tools/regress.sh"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}

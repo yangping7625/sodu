@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>关于本机</title>
+  <meta name="robots" content="index,follow">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../sh_main.css">
+</head>
+<!--
+  ARG-BUILD-11 · 安全区（H = 0）
+
+  这一页是整个作品里【唯一一处保证不吓人】的地方。
+  玩家在别处被推得太远时会来这里确认「这只是个作品」——
+  它必须每一次都给出同一个答案。所以：
+
+    · 零 JS。脚本全挂了它也仍然完整、仍然自洽。
+    · 零恐怖预算。永远不许在这一页安排任何 beat，一个都不行。
+    · 不写系统名 / 型号 / 版本号 / 厂商 —— 一写就变成"设定集"，
+      而这台机器的可信度恰恰来自它什么都没说。
+    · 不做导航（N3）。这里没有去别处的链接。
+
+  ⚠️ 双写点（DUAL-WRITE）：下面这行 A2 虚构声明必须【逐字等同】
+     data/sd_slice.js 的 SD_DATA.footer_notice 与 404.html 里的同一行。
+     已纳入 J-9 巡检（tests/spec.js → checkDualWriteNotice），
+     改一处漏一处会直接 fail，不要手动绕过。
+-->
+<body data-sh="doc">
+  <div class="sh-top"></div>
+
+  <main class="sh-doc">
+    <p>虚构作品的一部分。本机的钟还在走。</p>
+    <p class="sh-doc__id">本机 SD-□□□□</p>
+  </main>
+
+  <!-- 1.5% 噪点：内联 SVG，零位图、零外部请求（R5） -->
+  <svg class="sh-noise" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+    <filter id="shn-about"><feTurbulence type="fractalNoise" baseFrequency="0.86" numOctaves="2"/></filter>
+    <rect width="100%" height="100%" filter="url(#shn-about)"/>
+  </svg>
+</body>
+</html>

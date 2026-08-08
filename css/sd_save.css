@@ -1,0 +1,195 @@
+/* ==========================================================================
+   sd_save.css · 存档页（save 主题）
+   结构由 body[data-site="save"] 在 sd_base.css 提供（等宽 / 密 / 纸色）。
+   本页是【剧情道具】，显示"她记住的你"，不是进度面板（R2）。
+   ========================================================================== */
+
+.sd-slot {
+  padding: 18px 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  word-break: break-word;
+}
+.sd-written {
+  margin: 0 0 14px;
+  /* PO-SV-06：11px 在移动端中文下限之下；12px + 新灰阶（4.55:1）才读得出来 */
+  font-size: 12px;
+  color: var(--sd-dim);
+}
+
+/* flag 表：点线引导，像终端目录 */
+.sd-flags {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px dotted var(--sd-line);
+}
+.sd-flag {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  /* PO-SV-05：与 PO-SV-04 配套 —— 分层主要靠间距、其次才靠线。
+     加 2px 比把线加黑更克制，也更像真实的表格。 */
+  padding: 10px 0;
+  border-bottom: 1px dotted var(--sd-line);
+  font-family: var(--sd-mono);
+  /* PO-SV-02：13px / 1.45 保持（对比聊天面 16px 已达成 V-04 区隔，再降跌破可读线） */
+  font-size: 13px;
+  line-height: 1.45;
+  word-break: break-all;
+}
+.sd-flag__k { color: var(--sd-fg); flex: 0 0 auto; }
+.sd-flag__dots {
+  flex: 1 1 auto;
+  min-width: 14px;
+  border-bottom: 1px dotted var(--sd-line);
+  transform: translateY(-3px);
+}
+/* PO-SV-03：原为 flex:0 0 auto —— 键与值均不可收缩，超行宽时整行溢出，
+   被 body{overflow-x:hidden} 静默裁掉右侧的值。存档页的值就是全部内容。 */
+.sd-flag__v {
+  color: var(--sd-dim);
+  text-align: right;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* PO-SV-03 窄屏重排（唯一断点 430px，同 PO-IX-19）：
+   放弃「点线引导」而保住「值可读」。键一行、值缩进一行，
+   仍是终端目录的语法（像 ls -l 换行），不破坏地层身份。桌面端不变。 */
+@media (max-width: 430px) {
+  .sd-flag       { flex-wrap: wrap; }
+  .sd-flag__dots { display: none; }
+  .sd-flag__v    { flex: 1 0 100%; text-align: left; padding-left: 1em; }
+}
+
+.sd-flag--redacted,
+.sd-flag--redacted .sd-flag__k,
+.sd-flag--redacted .sd-flag__v { color: var(--sd-faint); }
+
+/* ── 谜题输入 + 三级提示阶梯 ───────────────────────────────────────── */
+.sd-puzzle {
+  margin: 10px 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--sd-line);
+  background: #fff;
+}
+.sd-puzzle__form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.sd-puzzle__label { font-size: 13px; color: var(--sd-dim); white-space: nowrap; }
+.sd-puzzle__input {
+  flex: 1 1 12em;
+  min-width: 0;
+  padding: 8px 10px;
+  /* PO-SV-07：纸色底上的浅描边框几乎不可见。此处为方角等宽风格，
+     与聊天面圆角胶囊形成刻意反差（X-5）。 */
+  border: 1px solid #b8b8ac;
+  background: #fff;
+  font-family: var(--sd-mono);
+  font-size: 14px;
+}
+/* PO-SV-08：FLAG 解谜是核心交互，聚焦态必须明确。无光晕。 */
+.sd-puzzle__input:focus { border-color: var(--sd-dim); }
+.sd-puzzle__btn {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  border: none;
+  background: #2b2b30;
+  color: #fff;
+  cursor: pointer;
+}
+.sd-puzzle__say {
+  margin: 8px 0 0;
+  min-height: 1em;
+  font-size: 13px;
+  color: var(--sd-dim);
+}
+
+/* ── L1-b：透明文本（长按全选可见） ─────────────────────────────────── */
+.sd-hidden-host { display: block; }
+.sd-hidden {
+  display: block;
+  margin: 22px 0 4px;
+  font-size: 12px;
+  color: transparent;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.sd-hidden::selection { color: #23231f; background: #d8d8d0; }
+
+/* ── E6：不经对话直访的降级提示 ─────────────────────────────────────── */
+.sd-early {
+  margin: 18px 0 4px;
+  font-size: 13px;
+  color: var(--sd-dim);
+  word-break: break-word;
+}
+
+/* ── CTL：安全操作区（清空存档 / 回到对话 · ARG-BUILD-08） ────────────
+   刻意做成全页最安静的一块：无边框盒、无填充色块、无强调色。
+   它与 .sd-puzzle（白底 + 描边 + 深色实心按钮）形成分工 ——
+   谜题区是「要你动脑的地方」，本区是「你随时能退出去的地方」，
+   两者绝不长得像，免得玩家把清档当成解谜的一步（R2 / R5）。 */
+.sd-ctl {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 26px 0 0;
+  padding-top: 14px;
+  border-top: 1px dotted var(--sd-line);
+  font-family: var(--sd-mono);
+}
+.sd-ctl__back {
+  font-size: 12px;
+  color: var(--sd-dim);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--sd-line);
+  padding-bottom: 1px;
+}
+.sd-ctl__back:hover,
+.sd-ctl__back:focus-visible { color: var(--sd-fg); }
+
+.sd-ctl__box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 幽灵按钮：描边而非实心 —— 破坏性操作不该是页面上最显眼的东西 */
+.sd-ctl__btn {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border: 1px solid var(--sd-line);
+  background: transparent;
+  color: var(--sd-dim);
+  font-family: var(--sd-mono);
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.sd-ctl__btn:hover,
+.sd-ctl__btn:focus-visible { border-color: var(--sd-dim); color: var(--sd-fg); }
+
+.sd-ctl__ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.sd-ctl__q {
+  font-size: 12px;
+  color: var(--sd-dim);
+  white-space: normal;
+}
+/* 确认键比默认态实一点点，但仍不用红 —— 单色基调不为一个设置项破例 */
+.sd-ctl__btn--go { border-color: var(--sd-dim); color: var(--sd-fg); }
+.sd-ctl__btn--off { color: var(--sd-faint); }
+
+.sd-ctl__say {
+  margin: 0;
+  min-height: 1em;
+  font-size: 12px;
+  color: var(--sd-dim);
+}
+.sd-ctl__say--done { color: var(--sd-fg); }

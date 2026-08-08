@@ -1,0 +1,424 @@
+/* ==========================================================================
+   sh_main.css · 本机外观（ARG-BUILD-11 / S19）
+
+   ⚠️ 命名纪律：本机侧的产物名一律避开 shell / desktop / os 这类词。
+      玩家会 view-source，也会看网络面板 —— 一个叫 shell.css 的请求
+      等于在页面上直接写「这是个壳」。前缀统一 sh_（S21）。
+
+   参照物不是电脑，是一台电子墨水阅读器 / 一台工厂里的手持点检终端。
+   功能极少且固定 · 界面就是一张列表 · 没人给它做过视觉设计 ·
+   只有一个颜色 · 响应很快但没有任何动画。
+
+   硬纪律（R5-1 ~ R5-12，逐条可扫描 · spec.js ⑮A checkShellVisual）：
+     · 0 圆角 / 0 投影 / 0 毛玻璃 —— 本文件不得出现
+       border-radius / box-shadow / backdrop-filter / filter:blur
+       （立体感一律靠 2px 斜面浮雕 + 伪元素纯色偏移块，不靠 box-shadow）
+     · 0 字体文件 —— 不得出现 @font-face 与任何字体 url()
+     · 图标区为【竖排单列列表】—— 本文件不得出现 grid-template-columns
+       与 flex-direction:row
+     · 动效仅允许 ≤100ms 的 opacity 硬切 —— 不得出现 animation / @keyframes /
+       transform / cubic-bezier / ease；transition 声明数 ≤3
+     · 无壁纸位图：氛围四层全部零位图（噪点是 HTML 里的内联 <svg>，
+       不走 CSS url()，因此本文件的 url() 数量恒为 0）
+
+   ⚠️ ARG-BUILD-13 · 批 1（美术方向 v2）放宽了两条，其余不动：
+     · gradient 由硬禁改为【预算】：总数 ≤4，且只许出现在
+       .sh-wall / .sh-wall::before / .sh-vig 三个规则里。
+       控件填充、按钮、标题栏一律不许用渐变。
+     · 颜色白名单由 3 色扩到 20 色（美术方向 v2 §4.3），且扫描范围
+       已扩到 rgb()/rgba()。第 21 个颜色进不来 —— 先去改断言。
+   ========================================================================== */
+
+/* ── 色板：美术方向 v2 §4.3 · 20 色（与 spec.js ⑮A 白名单逐字对齐）───────
+   分两层，物理隔离：
+     · 壳层（--sh-wall … --sh-amber）：只作用于本机桌面 body[data-sh="home"]
+     · 内容层（--sh-paper / --sh-ink / --sh-dim）：v1 原值零改动。
+   ⛔ 壳层色一律不得进入 /sd/ 内容区 —— 尤其 --sh-wall，它一旦漏进纸白
+      内容区，"她在"的叙事一致性会当场断掉（SH-0 / §1.2）。          */
+:root {
+  /* 壳 · 壁纸与氛围 */
+  --sh-wall:         #20302c;   /* 壁纸实底 */
+  --sh-wall-lite:    #2a3a35;   /* 壁纸 45° 斜纹 */
+  --sh-vig-end:      #0c1210;   /* 暗角 radial 终点 */
+  --sh-shadow:       #141a18;   /* 窗口硬投影纯色块 */
+  /* 壳 · 窗口 chrome（CUA 浮雕语汇）*/
+  --sh-chrome:       #beb9aa;   /* chrome 面 */
+  --sh-lite:         #e4dfd1;   /* 斜面高光：上 / 左 */
+  --sh-dark:         #7c776b;   /* 斜面暗面：下 / 右 */
+  --sh-edge:         #3b372f;   /* 1px 外框 */
+  --sh-chrome-ink:   #16171a;   /* chrome 文字 */
+  --sh-chrome-dim:   #6e6a5f;   /* chrome 次级文字 */
+  --sh-chrome-hi:    #c6c1b2;   /* chrome 交互态提亮 */
+  --sh-ink-dim-hc:   #4a4740;   /* prefers-contrast:more 下的次级文字 */
+  /* 壳 · 标题栏与图标 */
+  --sh-title-on:     #2e4a44;   /* 激活标题栏底 */
+  --sh-title-on-fg:  #e8e4d6;   /* 激活标题栏字 */
+  --sh-title-off:    #8a867a;   /* 非激活标题栏底（批 2 用）*/
+  --sh-title-off-fg: #d4d0c4;   /* 非激活标题栏字（批 2 用）*/
+  --sh-icon-fg:      #e8e4d6;   /* 桌面图标标签（与激活标题字同值）*/
+  --sh-amber:        #c88a3c;   /* 磷光琥珀：≤1 处/屏，批 1 不使用 */
+  /* 内容 · v1 零改动 */
+  --sh-paper: #efeee9;   /* 纸白：与 #ffffff 拉开，"纸的白"而非"软件的白" */
+  --sh-ink:   #191a1c;   /* 近黑 */
+  --sh-dim:   #8d8c86;   /* 唯一的一档灰 */
+  --sh-hair:  1px solid #191a1c;
+
+  /* 字体：零字体文件（0 预算 / 许可零风险 / 请求面板干净）
+     ① 界面字（窗口标题 / 图标标签）—— 宋体栈，12px 走点阵字形，
+        这是中文年代锚点，比任何位图素材都便宜
+     ② 等宽（时钟 / 文件列表 / 数字）—— 沿用 v1，零改动 */
+  --sh-font-ui:   "SimSun", "宋体", "NSimSun", "新宋体",
+                  "Songti SC", "STSong", "AR PL UMing CN", serif;
+  --sh-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+                  "Liberation Mono", "Courier New", monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; height: 100%; }
+
+body[data-sh] {
+  background: var(--sh-paper);
+  color: var(--sh-ink);
+  /* 系统等宽族：零字体文件下载（0 预算 + 许可零风险 + 请求面板干净） */
+  font-family: var(--sh-font-mono);
+  font-size: 14px;
+  /* V-S3（ARG-BUILD-12 · 组5）：4px 基线网格 —— 桌面行高 20px（4px × 5），
+     与素读气泡行高 28px（4px × 7）同处一个 4px 网格。 */
+  line-height: 20px;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* 桌面第一屏：壁纸是深色的，所以壳层文字整体换成图标亮色。
+   ⚠️ 只命中 data-sh="home"。/about 是 data-sh="doc"，它仍然是纸白文档页，
+      壳层的深色一格都不许漏过去。 */
+body[data-sh="home"] {
+  overflow: hidden;
+  background: var(--sh-wall);      /* .sh-wall 失效时的兜底，避免亮底亮字 */
+  color: var(--sh-icon-fg);
+}
+
+/* ── 氛围三层（零位图 / 零 url() / 零外部请求）───────────────────────
+     ① .sh-wall  壁纸：实底 + 45° 斜纹（旧显示器上擦不掉的静电吸尘痕）
+     ② .sh-vig   屏幕暗角（把视线从大屏外围收回来，治"周围大片空白"）
+     ③ .sh-noise 胶片噪点：v1 既有内联 <svg>，零改动、不计入渐变预算
+   注：CRT 扫描线（.sh-scan）已应可读性反馈移除 —— 它盖在窗口内容之上
+   严重干扰文字阅读。保留壁纸斜纹 + 暗角仍能维持旧屏质感。
+   这三条 gradient（壁纸::before 斜纹 + 暗角 radial）是全文件仅有的渐变，
+   spec.js ⑮A 按「≤4 且只许出现在 .sh-wall/.sh-wall::before/.sh-vig」计数。
+
+   ⚠️ 四层全部 pointer-events:none —— 有了壁纸不等于桌面变成可操作面，
+      空白处零交互、右键不劫持（R5-12）一格不松。                        */
+.sh-wall {
+  position: fixed; left: 0; top: 0; width: 100%; height: 100%;
+  z-index: 0; pointer-events: none;
+  background-color: var(--sh-wall);
+}
+.sh-wall::before {
+  content: ""; position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+  background-image: repeating-linear-gradient(45deg, var(--sh-wall-lite) 0 2px, transparent 2px 4px);
+  opacity: .18;   /* 斜纹强度：实机可在 .12~.22 微调，勿超 .25 */
+}
+.sh-vig {
+  position: fixed; left: 0; top: 0; width: 100%; height: 100%;
+  z-index: 22; pointer-events: none;
+  background-image: radial-gradient(ellipse at center, transparent 45%, var(--sh-vig-end) 100%);
+  opacity: .55;   /* prefers-contrast:more 下降到 .25，见文件末尾 */
+}
+
+/* 顶部：一条 1px 线，线以下什么都没有（R5-2：无顶栏、无厂商标志位）
+   壁纸转深后原来的近黑发丝线不可见，改用斜面暗面色。 */
+.sh-top {
+  position: fixed; left: 0; top: 0; width: 100%; height: 0;
+  border-top: 1px solid var(--sh-dark); z-index: 3;
+}
+
+/* 2.8% 噪点（V-S2 · ARG-BUILD-12 组5）：1.5% 在多数屏上不可见 → 提到
+   2.5–3% 区间（取 2.8%）。只作用于桌面层 —— 元素只存在于 index.html，
+   素读页零噪点。"软件的白"与"纸的白"必须能一眼分出。
+   内联 <svg> 覆盖层，零位图、零外部请求。 */
+.sh-noise {
+  position: fixed; left: 0; top: 0; width: 100%; height: 100%;
+  opacity: .028; pointer-events: none; z-index: 23;
+}
+
+/* ── 竖排单列图标列表（核心：不是网格）─────────────────────────────────
+   V-S1（ARG-BUILD-12 组5）：构图锚定左上，不居中。空旷是设定，但空旷要有构图：
+     · 列表左边距 = 视口宽 × 8%，且 ≥48px
+     · 顶部 1px 线到第一行的距离 = 行高 × 3（20px × 3 = 60px） */
+.sh-list {
+  position: fixed; left: max(8vw, 48px); top: 60px; width: 176px;
+  margin: 0; padding: 0; list-style: none; z-index: 2;
+}
+.sh-item { display: block; margin: 0 0 18px 0; }
+
+.sh-btn {
+  display: block; width: 100%; margin: 0; padding: 3px 4px;
+  border: 0; background: transparent; color: inherit;
+  font: inherit; text-align: left; cursor: pointer;
+  transition: opacity 80ms linear;
+}
+/* 选中态用激活色，不用近黑 —— 深壁纸上近黑块几乎看不出被选中 */
+.sh-btn:hover, .sh-btn:focus { background: var(--sh-title-on); color: var(--sh-title-on-fg); outline: 0; }
+
+/* 无标签的空条目：不可点、不可聚焦，视觉上只是列表里的一行 */
+.sh-mute { display: block; padding: 3px 4px; color: var(--sh-dim); }
+
+/* 几何符号：纯 CSS 单色方块变体，无位图、无图标字体。
+   壁纸转深后一律从近黑改为图标亮色，否则整列图标直接消失在壁纸里。 */
+.sh-g { display: inline-block; width: 10px; height: 10px; margin-right: 10px; vertical-align: middle; }
+.sh-g--solid  { background: var(--sh-icon-fg); }
+.sh-g--rows i { display: block; height: 2px; background: var(--sh-icon-fg); margin: 0 0 2px 0; }
+.sh-g--cells i{ display: inline-block; width: 4px; height: 4px; background: var(--sh-icon-fg); margin: 0 2px 2px 0; }
+.sh-g--dot    { width: 3px; height: 3px; background: var(--sh-icon-fg); margin-left: 4px; margin-right: 13px; }
+.sh-g--hollow { border: 1px solid var(--sh-icon-fg); }
+
+/* SH-4：最小化中的 app，几何符号变实心（这是"运行中"，不是完成度） */
+.sh-item[data-run="1"] .sh-g { background: var(--sh-icon-fg); }
+.sh-item[data-run="1"] .sh-g i { background: var(--sh-wall); }
+
+/* 图标标签走宋体点阵：12px 关抗锯齿，这是年代锚点，不是排版偏好 */
+.sh-label {
+  display: inline;
+  font-family: var(--sh-font-ui); font-size: 12px;
+  -webkit-font-smoothing: none; -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+}
+
+/* ── 窗口 ───────────────────────────────────────────────────────────── */
+/* 窗口层：z=10，在壁纸(0)之上、玻璃(21/22/23)之下。
+   ⚠️ 这个 10 挂在 .sh-stage 上，不能挂到 .sh-win —— 见下面 .sh-win::after。 */
+.sh-stage {
+  position: fixed; left: 0; top: 0; width: 100%; height: 100%;
+  z-index: 10; pointer-events: none;
+}
+.sh-win {
+  /* V-S1 联动：窗口左缘 = 列表左缘 + 列表宽(176px) + 20px 间隙。
+     ⚠️ left 与 width 必须由同一组常量推导，否则右缘会溢出视口：
+          right = left + width
+                = [max(8vw,48px) + 196px] + [100% - max(8vw,48px) - 244px]
+                = 100% - 48px            ← 恒等式，任何视口宽都成立
+     v1 的 width:calc(100% - 248px) 与 left 不自洽，在 650–1008px 区间
+     右缘溢出 (8vw - 52)px（720→5.6px / 900→20px / 1008→28.6px），
+     被 body{overflow:hidden} 吞掉了，所以一直没人发现。
+     旧的 max-width:760px 已删除 —— 它是"1920 屏右侧白掉 810px"的元凶。*/
+  position: absolute;
+  left: calc(max(8vw, 48px) + 196px); top: 28px;
+  width: calc(100% - max(8vw, 48px) - 244px);
+  height: calc(100% - 88px);
+  background: var(--sh-paper);
+  /* 1px 外框 + 2px 斜面浮雕（CUA 语汇）。
+     ⚠️ 方向不许反：上/左 = 亮(--sh-lite)，下/右 = 暗(--sh-dark)。
+        反过来窗口就从"凸起"变成"被按下去"，而 spec.js 不校验斜面方向，
+        它只能靠这段注释和 code review 守住。也不许改用 border-style:outset
+        （各浏览器算色不一致），更不许四边同亮色（那等于没有浮雕）。 */
+  outline: 1px solid var(--sh-edge);
+  border-top: 2px solid var(--sh-lite);
+  border-left: 2px solid var(--sh-lite);
+  border-right: 2px solid var(--sh-dark);
+  border-bottom: 2px solid var(--sh-dark);
+  display: none; pointer-events: auto;
+}
+/* 硬投影：一个绝对定位的纯色偏移块 —— 视觉上是硬边投影，代码上
+   零 box-shadow / 零模糊 / 零渐变。90 年代的 GUI 本来就没有软阴影。
+   ⚠️ .sh-win 绝对不能再加 z-index：一旦它自己变成 stacking context，
+      z-index:-1 就只能沉到"窗口背景之上、内容之下"，投影会糊在窗口脸上。
+      窗口层的 z=10 由 .sh-stage 承担，这两件事不能合并。 */
+.sh-win::after {
+  content: ""; position: absolute;
+  left: 3px; top: 3px; right: -3px; bottom: -3px;
+  background: var(--sh-shadow); opacity: .45;
+  z-index: -1; pointer-events: none;
+}
+.sh-win[data-open="1"] { display: block; }
+
+.sh-bar {
+  position: relative; height: 24px; padding-left: 6px;
+  white-space: nowrap; overflow: hidden;
+  background: var(--sh-title-on);
+  border-bottom: 1px solid var(--sh-edge);
+}
+.sh-bar__t {
+  display: inline-block; line-height: 24px;
+  font-family: var(--sh-font-ui); font-size: 12px;
+  color: var(--sh-title-on-fg);
+  -webkit-font-smoothing: none; -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+}
+.sh-bar__c { float: right; }
+
+/* SH-2：只有两个方形斜面控件，无最大化（R5-5：不许 — □ × 三连）。
+   hover 只做斜面凹陷 —— 不变色相、任何状态都不变红。 */
+.sh-ctl {
+  width: 16px; height: 16px; margin: 3px 4px 0 0; padding: 0;
+  border-top: 1px solid var(--sh-lite);
+  border-left: 1px solid var(--sh-lite);
+  border-right: 1px solid var(--sh-dark);
+  border-bottom: 1px solid var(--sh-dark);
+  background: var(--sh-chrome); color: var(--sh-chrome-ink);
+  font: inherit; font-size: 11px; line-height: 13px; cursor: pointer;
+}
+.sh-ctl:hover, .sh-ctl:focus {
+  border-top: 1px solid var(--sh-dark);
+  border-left: 1px solid var(--sh-dark);
+  border-right: 1px solid var(--sh-lite);
+  border-bottom: 1px solid var(--sh-lite);
+  outline: 0;
+}
+.sh-ctl--sheet { display: none; }
+
+/* 内容区内凹一线（1px 暗面色）：让内容"陷进去"，CUA 语汇，非 box-shadow。
+   顶边留给标题栏的 border-bottom，避免叠成 2px。 */
+.sh-body {
+  position: absolute; left: 0; top: 24px; right: 0; bottom: 0;
+  border: 1px solid var(--sh-dark); border-top: 0;
+}
+/* ── 窗口 pane 隔离（重叠回归根因修复）──────────────────────────
+   单窗口模型下 makePane/show 通过 data-on 切换可见 pane，但此前
+   缺少对应 CSS，导致多 app 同开时各 pane 的 iframe 直接堆叠重叠。
+   修复：默认隐藏，仅 data-on="1" 的 pane 绝对铺满 .sh-body。
+   零红线条目（无 shadow / radius / transition / transform）。 */
+.sh-pane { display: none; }
+.sh-pane[data-on="1"] {
+  display: block; position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+  /* 内容区墨色：body[data-sh="home"] 的壳层亮色只作用于标题栏/桌面图标，
+     不能漏进 pane 里的文件/归档视图（纸白背景）。 */
+  color: var(--sh-ink);
+}
+.sh-frame { display: block; width: 100%; height: 100%; border: 0; background: var(--sh-paper); }
+
+/* 内建只读视图（列表纸，不是文件浏览器） */
+.sh-view { position: absolute; left: 0; top: 0; right: 0; bottom: 0; overflow: auto; padding: 6px 0; }
+.sh-row {
+  display: block; width: 100%; margin: 0; padding: 5px 12px;
+  border: 0; background: transparent; color: inherit;
+  font: inherit; text-align: left; cursor: pointer;
+}
+.sh-row:hover, .sh-row:focus { background: var(--sh-ink); color: var(--sh-paper); outline: 0; }
+.sh-row--dead { cursor: default; }
+.sh-row--dead:hover, .sh-row--dead:focus { background: transparent; color: inherit; }
+.sh-msg { padding: 6px 12px; color: var(--sh-dim); }
+
+/* 二级：上一层 + 内嵌页 */
+.sh-lvl { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
+.sh-row--up { border-bottom: var(--sh-hair); padding: 4px 12px; }
+.sh-frame--sub { position: absolute; left: 0; top: 28px; right: 0; bottom: 0; width: 100%; height: auto; }
+
+/* ── ARG-BUILD-12 · FR-A 首启三行（CF-4 专用标志驱动）───────────────
+   不是 splash / intro / 过场 —— 是这台机器自己印在屏幕上的三行字。
+   R5 禁令：无进度条 / 百分比 / logo / 版本号 / 跳过按钮 / 缓动 / 音效。
+   唯一允许的动效是 ≤100ms opacity 硬切（设备语言）。              */
+.sh-framing {
+  position: fixed; left: 0; top: 0; width: 100%; height: 100%;
+  /* z=40：压在玻璃三层之上 —— 首启三行是这台机器自己印在屏幕上的字，
+     不是被扫描线和暗角盖住的一张网页。 */
+  z-index: 40; background: var(--sh-wall); color: var(--sh-icon-fg);
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 24px;
+  transition: opacity 80ms linear;
+}
+.sh-framing--off { opacity: 0; }
+.sh-framing__l { margin: 0 0 18px 0; font-size: 18px; line-height: 1.5; }
+
+/* FR-B 窗口一行：父层窗口 chrome 渲染（设备命名空间，非 /sd/ 内） */
+.sh-winline {
+  position: absolute; left: 0; top: 0; right: 0;
+  padding: 6px 8px; font-size: 12px; color: var(--sh-dim);
+  background: var(--sh-paper); z-index: 5;
+}
+
+/* ── 时钟（CL-1：只有 HH:MM，永不显示日期 / 星期 / 年份）─────────────── */
+.sh-clock {
+  position: fixed; right: 14px; bottom: 10px; z-index: 12;
+  margin: 0; padding: 2px 4px; border: 0;
+  background: transparent; color: var(--sh-icon-fg); font: inherit; font-size: 13px;
+  cursor: pointer;
+}
+.sh-clock:hover, .sh-clock:focus { background: var(--sh-title-on); color: var(--sh-title-on-fg); outline: 0; }
+
+/* 时钟面板：一块 chrome 面，斜面浮雕同窗口（上/左亮，下/右暗） */
+.sh-panel {
+  position: fixed; right: 14px; bottom: 38px; z-index: 13;
+  min-width: 176px; padding: 8px;
+  background: var(--sh-chrome); color: var(--sh-chrome-ink);
+  outline: 1px solid var(--sh-edge);
+  border-top: 2px solid var(--sh-lite);
+  border-left: 2px solid var(--sh-lite);
+  border-right: 2px solid var(--sh-dark);
+  border-bottom: 2px solid var(--sh-dark);
+}
+.sh-panel__t { font-size: 12px; margin-bottom: 6px; }
+.sh-panel__l { font-size: 12px; color: var(--sh-chrome-dim); margin-bottom: 3px; }
+.sh-panel__g { margin: 7px 0 3px 0; }
+.sh-panel__b, .sh-panel__r {
+  margin: 0 4px 4px 0; padding: 2px 6px;
+  border-top: 1px solid var(--sh-lite);
+  border-left: 1px solid var(--sh-lite);
+  border-right: 1px solid var(--sh-dark);
+  border-bottom: 1px solid var(--sh-dark);
+  background: var(--sh-chrome); color: var(--sh-chrome-ink);
+  font: inherit; font-size: 12px; cursor: pointer;
+}
+.sh-panel__b:hover, .sh-panel__r:hover,
+.sh-panel__b:focus, .sh-panel__r:focus {
+  border-top: 1px solid var(--sh-dark);
+  border-left: 1px solid var(--sh-dark);
+  border-right: 1px solid var(--sh-lite);
+  border-bottom: 1px solid var(--sh-lite);
+  outline: 0;
+}
+
+/* ── /about（安全区文档页，H=0）───────────────────────────────────────── */
+.sh-doc { max-width: 44em; padding: 30px 20px; }
+.sh-doc p { margin: 0 0 14px 0; }
+.sh-doc__id { color: var(--sh-dim); }
+
+/* ── 移动态（<720px）：列表天生就是移动布局；窗口降级为全屏 sheet ───── */
+@media (max-width: 719px) {
+  .sh-list { position: static; width: auto; padding: 24px 16px 0 16px; }
+  .sh-item { margin-bottom: 22px; }
+
+  .sh-win {
+    position: fixed; left: 0; top: 0; width: 100%; max-width: none; height: 100%;
+    border: 0; outline: 0;
+  }
+  .sh-win::after { display: none; }   /* 全屏 sheet 贴边，硬投影没有落点 */
+  .sh-bar { height: 40px; padding-left: 0; }
+  .sh-bar__t { line-height: 40px; font-size: 13px; }
+  .sh-body { top: 40px; border: 0; }
+
+  /* 移动态只有 ←（= 最小化语义）；不提供关闭 */
+  .sh-ctl--min, .sh-ctl--close { display: none; }
+  .sh-ctl--sheet { display: inline-block; float: left; margin: 11px 10px 0 10px; }
+
+  /* §7.8 碰撞 1：窗口打开时时钟移到顶部状态条右侧，
+     绝不 fixed 在底部 —— 手机上右下角是输入区的发送键 */
+  body[data-sh-open="1"] .sh-clock { top: 0; bottom: auto; right: 12px; line-height: 40px; padding: 0 6px; }
+  body[data-sh-open="1"] .sh-panel { top: 46px; bottom: auto; right: 12px; }
+}
+
+/* ── 大桌面（≥1440）：窗口随屏放大 ─────────────────────────────────────
+   用户抱怨 #1「窗口挤在很小区域，周围大片空白」的根因是旧的
+   max-width:760px —— 1920 屏上右侧硬白掉约 810px。现在改成 clamp：
+   1120×760 是【下限】不是定值，1920 屏约占 72%、2560 屏约占 66%。
+   left 继续沿用「列表左缘 + 196px」而不是写死 320px：8vw 的列表在
+   ≥1800px 宽屏上右缘会推到 329px，写死 320 反而会压住图标列。
+   两条 max-* 是【溢出护栏】，不是回到 760px 死限 —— 只在视口真的装不下
+   （例如 1440×780 的笔记本可视区）时才生效，保证右留 48px / 下留 64px。 */
+@media (min-width: 1440px) {
+  .sh-win {
+    top: 64px;
+    width: clamp(1120px, 72vw, 1680px);
+    height: clamp(760px, 78vh, 1040px);
+    max-width: calc(100% - max(8vw, 48px) - 244px);
+    max-height: calc(100% - 128px);
+  }
+}
+
+/* ── 高对比模式（美术方向 v2 §13）───────────────────────────────────────
+   暗角是氛围，不是内容。低视力用户下把它压到 .25，
+   chrome 次级文字换成更深的一档（#4a4740，对比度从 2.82:1 拉起来）。 */
+@media (prefers-contrast: more) {
+  .sh-vig { opacity: .25; }
+  .sh-panel__l { color: var(--sh-ink-dim-hc); }
+}

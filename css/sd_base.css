@@ -1,0 +1,178 @@
+/* ==========================================================================
+   sd_base.css · 全站底座
+
+   继承的纪律（来自参考实现的站群模式）：
+     「只切颜色 = 换皮」——所以把【栏数 / 行高 / 密度 / 字体族 / 分隔线】
+     写进 <body data-site> 的变量，而不是写进 class。
+     两个主题必须在结构上分化，不许只换颜色。
+
+   移动优先（P4 硬要求）：
+     零横向滚动 · assistant 正文 ≥16px · 输入框始终可见 · flag 表不溢出
+   ========================================================================== */
+
+/* ── 主题变量：结构 + 皮肤 ──────────────────────────────────────────── */
+/* X-5 地层隔离：:root（2026 素读地层，冷灰）与 body[data-site="save"]
+   （系统面地层，暖灰）的灰阶各自独立赋值，数值刻意不相等，
+   不得抽公共变量、不得互相 var() 引用。 */
+:root {
+  --sd-bg: #ffffff;
+  --sd-fg: #1a1a1c;
+  /* PO-G-01：成句文本的最浅值，4.51:1（AA） */
+  --sd-dim: #76767c;
+  /* PO-G-01：装饰性描边 / 占位符 / 非成句极弱标记，3.02:1 */
+  --sd-faint: #949499;
+  /* 纯装饰分隔线，不得再用于输入框边界（见 PO-IX-12） */
+  --sd-line: #ececef;
+
+  --sd-font: system-ui, -apple-system, "Segoe UI", "Noto Sans SC",
+             "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --sd-mono: ui-monospace, SFMono-Regular, Menlo, Consolas,
+             "Noto Sans Mono", "DejaVu Sans Mono", monospace;
+
+  --sd-size: 16px;
+  /* V-S3（ARG-BUILD-12 · 组5）：4px 基线网格。16px × 1.75 = 28px（4px×7），
+     与桌面壳 20px 行高（4px×5）同处一个 4px 网格 —— 隐性秩序，全设备一体。
+     ⚠️ 数据层 theme_shift 的 --sd-lh 1.7/1.92 是渐进增强（SD-039/054），
+     与默认 1.75 的差异不可感知且不强依赖 —— 不改节点数据（SH-0）。 */
+  --sd-lh: 1.75;
+  --sd-col: 560px;
+  --sd-gap: 14px;
+  --sd-pad: 20px;
+  --sd-radius: 2px;
+}
+
+/* assistant · 2026 极简当代：极疏、单列、无分隔线 */
+body[data-site="assistant"] {
+  --sd-bg: #ffffff;
+  --sd-font-active: var(--sd-font);
+  --sd-size: 16px;
+  --sd-lh: 1.75;
+  --sd-col: 560px;
+  --sd-gap: 14px;
+}
+
+/* S-065 色温位移：极轻微，说不清哪变了 */
+body[data-site="assistant"][data-temp="shifted"] {
+  --sd-bg: #fbfbfd;
+}
+
+/* save · 等宽存档终端：密、点线连接、纸色 */
+body[data-site="save"] {
+  --sd-bg: #f7f6f2;
+  --sd-fg: #23231f;
+  /* PO-SV-01：4.55:1，刻意偏暖（蓝分量 −8），与 :root 的 #76767c 不相等 */
+  --sd-dim: #717169;
+  /* PO-SV-04：点线引导 1.26:1 → 1.59:1，仍是发丝级但存在 */
+  --sd-line: #c6c6ba;
+  --sd-font-active: var(--sd-mono);
+  --sd-size: 14px;
+  /* V-S3：14px × 1.43 ≈ 20px（4px × 5）—— 同样落在 4px 基线网格上 */
+  --sd-lh: 20px;
+  --sd-col: 520px;
+  --sd-gap: 6px;
+  --sd-radius: 0;
+}
+
+/* ── reset ──────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--sd-bg);
+  color: var(--sd-fg);
+  font-family: var(--sd-font-active, var(--sd-font));
+  font-size: var(--sd-size);
+  line-height: var(--sd-lh);
+  /* P4：零横向滚动 */
+  overflow-x: hidden;
+  /* PO-G-05 中文排版基线：
+     line-break:strict  → CJK 禁则，行首不出现 。，、」）
+     overflow-wrap:break-word（原 anywhere）→ 不把 FLAG_█████ 从任意位置劈开
+     word-break 已移除（非标准且与上条重复）
+     text-spacing-trim  → 渐进增强，中文标点占位收窄
+     tabular-nums       → 关键：{mm:ss} 等宽，逐秒不抖动（抖动会被读作 bug，违 R5） */
+  line-break: strict;
+  overflow-wrap: break-word;
+  text-spacing-trim: space-first;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 1.2s linear;
+}
+
+a { color: inherit; }
+
+button, input {
+  font: inherit;
+  color: inherit;
+}
+
+/* ── 布局壳 ─────────────────────────────────────────────────────────── */
+.sd-wrap {
+  width: 100%;
+  max-width: var(--sd-col);
+  margin: 0 auto;
+  /* PO-G-06：viewport-fit=cover 下补全左右安全区（刘海机横屏） */
+  padding: 0
+           max(var(--sd-pad), env(safe-area-inset-right, 0px))
+           0
+           max(var(--sd-pad), env(safe-area-inset-left, 0px));
+}
+
+.sd-head {
+  /* PO-G-06：补顶部安全区 */
+  padding: calc(18px + env(safe-area-inset-top, 0px)) 0 10px;
+  font-size: 12px;
+  color: var(--sd-dim);
+  /* PO-IX-08：加字距，让页头读作「标签」而非「小标题」 */
+  letter-spacing: .08em;
+}
+
+/* ── A2：页脚虚构声明（10px，可发现但不破坏沉浸） ────────────────────
+   PO-G-02：这行是实质性隐私告知与虚构声明，不是装饰。
+   8px + 1.65:1 等于不存在，A1–A6 合规链条上是空的。
+   10px + 4.51:1 仍是全页最小最淡的一行，且在 .sd-foot（margin-top:40px）
+   之后，不进入首屏，不破坏沉浸。 */
+.sd-foot {
+  margin-top: 40px;
+  padding: 16px 0 calc(18px + env(safe-area-inset-bottom, 0px));
+}
+
+.sd-notice {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--sd-dim);
+  letter-spacing: .02em;
+}
+
+/* 软倒计时（只显示，不阻断 —— R8 / R10） */
+.sd-soft {
+  margin: 0 0 6px;
+  font-size: 10px;
+  color: var(--sd-faint);
+}
+
+/* ── 可访问性 ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+
+  /* PO-G-07 ①：sd-blink 被杀后三点停在 opacity .25（几乎不可见），
+     「正在输入」状态完全失去表达。这不是恢复动画，是给静止态一个可读值。 */
+  .sd-typing i { opacity: .6; }
+
+  /* PO-G-07 ②：豁免 body 的 background-color 过渡。
+     WCAG 的 reduce-motion 针对前庭位移动效；S-065 色温位移若变成瞬时跳变
+     反而更扎眼，对光敏感用户也更差，且违背「说不清哪变了」的设计意图。 */
+  body { transition: background-color 1.2s linear !important; }
+}
+
+/* PO-G-03：焦点态去系统蓝、加粗到可见（4.51:1，≥3:1 达标） */
+:focus-visible {
+  outline: 2px solid var(--sd-dim);
+  outline-offset: 1px;
+  border-radius: inherit;   /* 跟随元素圆角，避免圆形按钮套方框 */
+}

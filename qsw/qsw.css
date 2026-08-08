@@ -1,0 +1,200 @@
+/* qsw/archive.css — 汽水屋论坛「静态镜像」样式（2011 地层）
+ * 刻意与 素读（2026 语义化 / 等宽）视觉不同年代：
+ *   宋体正文 · 960px 固定宽 · 表格布局 · 1px 实线 · 交替行底色。
+ * 本文件不引用任何素读 / 桌面壳资源（X-5 反 DRY）。
+ * 年代地层纪律：类名用中性词，禁用素读 / 桌面壳的命名前缀（X-5）。
+ */
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+
+body {
+  background: #e7e7e7;
+  color: #222;
+  font-family: "宋体", SimSun, "Songti SC", "STSong", serif;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+/* —— 镜像声明条：视觉上与论坛本体分离（§1.4.1 纪律） —— */
+.mirrorbar {
+  background: #d8d8d8;
+  color: #555;
+  font-family: "Courier New", Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 5px 10px;
+  border-bottom: 1px solid #b0b0b0;
+  text-align: center;
+}
+.mirrorbar b { color: #333; font-weight: bold; }
+
+/* —— 论坛外壳 —— */
+.forum {
+  width: 960px;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid #c4c4c4;
+  border-top: none;
+  padding: 0 0 14px 0;
+}
+
+.sitehead {
+  padding: 10px 14px 8px 14px;
+  border-bottom: 2px solid #9a9a9a;
+  background: #f3f3f3;
+}
+.sitehead h1 {
+  font-family: "黑体", SimHei, "Heiti SC", sans-serif;
+  font-size: 22px;
+  margin: 0;
+  color: #2a2a2a;
+  letter-spacing: 1px;
+}
+.sitehead .sub { color: #777; font-size: 11px; margin-top: 2px; }
+
+.topnav {
+  background: #5a5a5a;
+  color: #fff;
+  font-size: 12px;
+  padding: 4px 14px;
+}
+.topnav a, .topnav span { color: #eee; margin-right: 14px; text-decoration: none; }
+.topnav a:hover { color: #fff; text-decoration: underline; }
+
+/* —— 双栏布局（archive 双栏，移动端塌单列） —— */
+.cols { padding: 12px 14px; }
+.col-left { float: left; width: 320px; }
+.col-right { float: right; width: 600px; }
+.cols:after { content: ""; display: block; clear: both; }
+
+/* —— 通用表格（2011 论坛表格质感） —— */
+table.grid {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #cfcfcf;
+  background: #fff;
+  margin-bottom: 12px;
+}
+table.grid caption {
+  text-align: left;
+  background: #e3e3e3;
+  font-weight: bold;
+  font-family: "黑体", SimHei, sans-serif;
+  font-size: 13px;
+  padding: 4px 8px;
+  border: 1px solid #cfcfcf;
+  border-bottom: none;
+  color: #333;
+}
+table.grid th {
+  background: #efefef;
+  border: 1px solid #d5d5d5;
+  padding: 4px 7px;
+  text-align: left;
+  font-weight: bold;
+  color: #444;
+  font-size: 12px;
+}
+table.grid td {
+  border: 1px solid #e2e2e2;
+  padding: 4px 7px;
+  vertical-align: top;
+}
+table.grid tr.alt td { background: #f6f6f6; }
+
+a { color: #1a4f9c; text-decoration: none; }
+a:visited { color: #5b3a8c; }
+a:hover { text-decoration: underline; }
+
+.tiny { font-size: 11px; color: #888; }
+.dim { color: #777; }
+
+/* —— 主题列表行 —— */
+.threadtitle { font-weight: bold; }
+.threadmeta { font-size: 11px; color: #999; }
+
+/* —— 帖子视图（楼层） —— */
+.post {
+  border: 1px solid #cfcfcf;
+  margin-bottom: 10px;
+  background: #fff;
+}
+.post .head {
+  background: #eef0f3;
+  border-bottom: 1px solid #cfcfcf;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: #555;
+}
+.post .head .uid { font-weight: bold; color: #2a2a2a; }
+.post .body { padding: 8px 10px; }
+.post .sig {
+  border-top: 1px dashed #ddd;
+  margin: 8px 0 0 0;
+  padding-top: 4px;
+  color: #999;
+  font-size: 11px;
+}
+.post.deleted .body { color: #999; font-style: italic; background: #f0f0f0; }
+
+/* —— 分页条 —— */
+.pager {
+  text-align: center;
+  padding: 8px 0;
+  font-size: 13px;
+  clear: both;
+}
+.pager a, .pager span {
+  display: inline-block;
+  min-width: 22px;
+  padding: 2px 6px;
+  margin: 0 2px;
+  border: 1px solid #ccc;
+  background: #fafafa;
+  color: #1a4f9c;
+  text-decoration: none;
+}
+.pager span.cur { background: #5a5a5a; color: #fff; border-color: #5a5a5a; font-weight: bold; }
+.pager a:hover { background: #eee; }
+
+/* —— 死寂帖专用（冻结 · 不随设备时间动） —— */
+.ghost td { color: #bbb; font-style: italic; }
+.frozen {
+  border: 1px solid #ccc;
+  background: #f7f7f7;
+  padding: 12px;
+  color: #888;
+  text-align: center;
+  margin: 10px 0;
+}
+
+/* —— 页脚 —— */
+.foot {
+  border-top: 1px solid #ccc;
+  padding: 10px 14px 4px 14px;
+  color: #999;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.foot b { color: #666; }
+
+/* 回到顶部（仅页面内滚动，不涉及任何交互功能） */
+.totop { text-align: right; padding: 2px 14px; }
+.totop a { color: #888; font-size: 11px; }
+
+/* —— 响应式：移动优先 · P4（≤390px 不横滚、塌单列） —— */
+@media (max-width: 640px) {
+  .forum { width: 100%; }
+  .col-left, .col-right { float: none; width: 100%; }
+}
+@media (max-width: 390px) {
+  body { font-size: 12px; }
+  .forum { width: 100%; border-left: none; border-right: none; }
+  .col-left, .col-right { width: 100%; }
+  table.grid, .post, .pager a, .pager span { max-width: 100%; }
+  table.grid td, table.grid th { padding: 3px 4px; word-break: break-all; }
+  .sitehead h1 { font-size: 18px; }
+  .topnav a, .topnav span { margin-right: 9px; }
+  .post .body { padding: 6px 6px; word-break: break-all; }
+}

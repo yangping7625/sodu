@@ -1,0 +1,2 @@
+# 开发期依赖（Web 端零依赖，vitest 只在 devDependencies）
+node_modules/
