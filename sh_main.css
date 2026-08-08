@@ -287,6 +287,9 @@ body[data-sh="home"] {
 .sh-pane { display: none; }
 .sh-pane[data-on="1"] {
   display: block; position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+  /* 内容区墨色：body[data-sh="home"] 的壳层亮色只作用于标题栏/桌面图标，
+     不能漏进 pane 里的文件/归档视图（纸白背景）。 */
+  color: var(--sh-ink);
 }
 .sh-frame { display: block; width: 100%; height: 100%; border: 0; background: var(--sh-paper); }
 
