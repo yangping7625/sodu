@@ -62,6 +62,26 @@
   border-bottom-right-radius: 6px;
 }
 
+/* ── ARG-DIALOGUE-REV · MVP-5：wait 视觉占位（A-β）──────────────────
+   连续 her line ≥4 时，气泡下方一条 1px 灰线，0% 透明、仅 hover 可见。
+   作用 = 给既有「任意点击加速」一个视觉锚点，不新增按钮/控件表面。
+   R5：无文字、无图标、非交互区（pointer-events:none），点击加速仍由
+   全局 click 监听负责 —— 这条线只是"这里可以继续"的静默提示。 */
+.sd-bubble--nextable { position: relative; }
+.sd-bubble--nextable::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: -3px;
+  height: 1px;
+  background: var(--sd-dim);
+  opacity: 0;
+  transition: opacity .18s ease;
+  pointer-events: none;
+}
+.sd-bubble--nextable:hover::after { opacity: 1; }
+
 /* 系统行（居中、小、灰） */
 .sd-sys {
   text-align: center;

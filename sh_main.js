@@ -165,7 +165,7 @@
   var winLineShown = false;
 
   var FR_A_LINES = ['这台机器不是你的。', '它被打开过很多次。', '最后一次，没有关。'];
-  var FR_B_LINE = '上一次的会话没有结束。';
+  var FR_B_LINE = '之前的记录还在。';
 
   function narrow() {
     try {
@@ -312,7 +312,8 @@
     makePane(id);
     if (!panes[id]) return;
     /* ARG-BUILD-12 · FR-B：素读窗口【首次打开】时，父层窗口 chrome 渲染
-       一行「上一次的会话没有结束。」，1.2s 硬切消失（播过即置位）。
+       一行「之前的记录还在。」，1.2s 硬切消失（播过即置位）。
+       ⚠️ 与 /sd/ 裸开自渲染同文案（ARG-DIALOGUE-REV · MVP-3 已换措辞）。
        只在第一次（windowFresh 快照）触发；重开窗由 winLineShown 挡住。 */
     if (id === 'sd' && framingBoot.windowFresh) showWindowLine();
     show(id);
@@ -378,7 +379,7 @@
        R5：无进度条 / 百分比 / logo / 版本号 / 跳过按钮 / 缓动 / 音效。
        文案逐字来自设计真源 §2.2 —— 玩家屏幕上三行字一字不差。 */
   var FR_A_LINES = ['这台机器不是你的。', '它被打开过很多次。', '最后一次，没有关。'];
-  var FR_B_LINE = '上一次的会话没有结束。';
+  var FR_B_LINE = '之前的记录还在。';
 
   function showFraming(done) {
     var ov = doc.createElement('div');

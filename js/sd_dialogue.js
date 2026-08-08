@@ -48,6 +48,9 @@
   var skipRequested = false;
   var current = null;
   var ladder = null;     // 谜题提示阶梯（free_input.puzzle 期间存活）
+  /* ARG-DIALOGUE-REV · MVP-5：连续 her line 计数（wait 视觉占位触发条件）。
+     连续 her line ≥4 时，每句气泡挂 .sd-bubble--nextable（可点击加速锚点）。 */
+  var herStreak = 0;
 
   /* ── 初始化 ──────────────────────────────────────────────────────── */
   function init() {
@@ -247,10 +250,29 @@
   }
 
   /* ── 主推进 ──────────────────────────────────────────────────────── */
+  /* 通用扫描：第一个【未读】且 tags 含指定 tag 的节点（arc_entry 同族）。
+     MVP-1 用它找 tags:['opening'] 的 SO-001 —— 引擎不认具体 ID。 */
+  function firstUnreadByTag(tag) {
+    var i;
+    for (i = 0; i < order.length; i++) {
+      var n = index[order[i]];
+      if (n && (n.tags || []).indexOf(tag) >= 0 && !S().isRead('node:' + n.id)) return n.id;
+    }
+    return null;
+  }
+
   function start(fromId) {
     if (!order.length) init();
     var id = fromId || S().cursor() || firstId();
     if (!index[id]) id = firstId();
+    /* MVP-1（ARG-DIALOGUE-REV · B-α）：设备态开场 —— 全新会话（无 fromId、
+       无 cursor）时，在 SS-001 之前先播 tags:['opening'] 的节点（SO-001）。
+       通用扫描，不写死任何 ID；播过即 markRead（幂等门闩）。
+       续播（cursor 非空）不重播 —— 那是"上一次的会话"的继续，不是开场。 */
+    if (!fromId && !S().cursor()) {
+      var opening = firstUnreadByTag('opening');
+      if (opening) { S().markRead('node:' + opening); return go(opening); }
+    }
     go(id);
   }
 
@@ -265,9 +287,24 @@
     /* requires 不满足 → 顺延到 next，不卡死 */
     if (!meets(n)) return go(n.next);
 
+    /* MVP-6（ARG-DIALOGUE-REV · A-γ）：连播中断点 —— 通用读 pause_hooks 表
+       （仿 feed_hooks / arc_entry 同族），目标节点首次到达时先播 SC-PAUSE-*，
+       播完回原目标（FM-1：链结构永不因投喂/中断改变）。已读即不再插入。
+       引擎不认识 SC-PAUSE-001 / SD-068 任何具体 ID，只读表。 */
+    var pauseId = pauseFor(id);
+    if (pauseId && !S().isRead('node:' + pauseId)) {
+      S().markRead('node:' + pauseId);
+      return go(pauseId);
+    }
+
     current = n;
     S().cursor(id);
     running = true;
+
+    /* MVP-5：连续 her line 计数 —— her 的 line/branch_line 累加，其余清零。
+       （a1_reveal / 投喂插播是独立节拍，不在此列，也不打断长连播的锚点。） */
+    herStreak = (n.speaker === 'her' && (n.kind === 'line' || n.kind === 'branch_line'))
+      ? herStreak + 1 : 0;
 
     /* 节点级停留采样（ATT R_dwell 数据源）：进入新节点即结算上一节点 */
     try { B().noteNode(id); } catch (e) { /* 静默：采集失败绝不影响可玩性 */ }
@@ -318,7 +355,16 @@
           if (!applyRedact(n)) {
             var text = interp(rawText);
             if (n.speaker === 'sys') R().sysLine(text, n.id);
-            else R().bubble(n.speaker || 'her', text, n.id, n.block);
+            else {
+              var b = R().bubble(n.speaker || 'her', text, n.id, n.block);
+              /* MVP-5（ARG-DIALOGUE-REV · A-β）：连续 her line ≥4 时，
+                 气泡挂 .sd-bubble--nextable —— 1px 灰条占位（无文字/图标，
+                 0% 透明仅 hover 可见），给既有「任意点击加速」一个视觉锚点。
+                 R5：不新增按钮/控件表面；投喂插播等独立节拍不触发。 */
+              if (n.speaker === 'her' && herStreak >= 4 && b && b.classList) {
+                b.classList.add('sd-bubble--nextable');
+              }
+            }
           }
         } else {
           applyRedact(n);
@@ -389,7 +435,14 @@
         var o = picked._raw;
         R().playerEcho(picked.label);
         applyFlags(o.set_flags);
-        go(o.next || n.next);
+        /* MVP-6（ARG-DIALOGUE-REV · A-γ）：伪选择 —— 选项带 silence_ms 时
+           选中后她沉默 N 毫秒再播下一句（行为上像卡死，实为设计意图）。
+           noSkip=true：沉默期间点击不跳过（与既有任意点击加速区分开）。 */
+        if (o.silence_ms) {
+          wait(o.silence_ms, true, function () { go(o.next || n.next); });
+        } else {
+          go(o.next || n.next);
+        }
       });
       if (fi && fi.enabled) attachInlineInput(n, fi);
     } else if (fi && fi.enabled) {
@@ -545,13 +598,38 @@
     if (fi.capture === 'name_given') {
       var cleaned = I().clean(raw);
       var nick = I().nickname(raw);
-      S().setName(cleaned || null, nick);
-      S().pushInput(n.id, raw, 'name_given');
-      if (cleaned) R().playerEcho(cleaned);
-      /* E2：不输入名字 / 全空格 → 她说「……那我先不叫。」，不卡死 */
-      if (!cleaned) {
-        R().bubble('her', '……那我先不叫。');
+      /* ── MVP-2（ARG-DIALOGUE-REV · B-β）：输入不是名字 —— 意图兜底 ──
+         玩家在命名节点输入「我不是助手」这类反问/元层词时，旧行为会把它
+         当名字接受（{NAME} 渲染成反问句）。这里加两路兜底：
+           · 含禁词（5 个强元层词，「助手」不进 —— 防误伤正常名字）
+           · 纯反问（含「不 / ? / ？ / 吗」）
+         命中：她说「……那你先不叫。」，名字不存（no_name_given），
+         正常推进 SN-006（fi.next 不变）。 */
+      var NAME_FORBIDDEN = ['AI', '语言模型', '对话助手', '系统', '程序'];
+      var lowerC = String(cleaned || '').toLowerCase();
+      var hasForbidden = NAME_FORBIDDEN.some(function (w) {
+        /* 「AI」按 ASCII 整词匹配（避免 Kai/Mai 等名字误伤）；中文词走子串。 */
+        if (w === 'AI') return /\bai\b/i.test(lowerC);
+        return lowerC.indexOf(w.toLowerCase()) >= 0;
+      });
+      var hasRhetorical = /[不?？吗]/.test(cleaned || '');
+      var metaFallback = !!(cleaned && (hasForbidden || hasRhetorical));
+
+      if (metaFallback) {
+        S().setName(null, null);                 /* 名字不存（保持 null） */
+        S().pushInput(n.id, raw, 'name_given');
+        R().playerEcho(cleaned);
+        R().bubble('her', '……那你先不叫。');
         S().flag('no_name_given', true);
+      } else {
+        S().setName(cleaned || null, nick);
+        S().pushInput(n.id, raw, 'name_given');
+        if (cleaned) R().playerEcho(cleaned);
+        /* E2：不输入名字 / 全空格 → 她说「……那我先不叫。」，不卡死 */
+        if (!cleaned) {
+          R().bubble('her', '……那我先不叫。');
+          S().flag('no_name_given', true);
+        }
       }
     } else {
       /* ⚠️ CF-3 · SC-029（idiolect）：命中的投喂输入【不得进入】语料池。
@@ -709,6 +787,16 @@
     return false;
   }
 
+  /* ── ARG-DIALOGUE-REV · MVP-6：pause_hooks 表读取 ──────────────────
+     目标节点 ID → 应在其之前插入的中断节点 ID。引擎只读表、不认 ID
+     （与 feed_hooks 同一"引擎读表"模式；数据层 pause_hooks 见 sd_slice.js）。 */
+  function pauseFor(id) {
+    try {
+      var hooks = (g.SD_DATA && g.SD_DATA.pause_hooks) || {};
+      return hooks[id] || null;
+    } catch (e) { return null; }
+  }
+
   /* ── ARG-BUILD-12 · GD-7：`.sd-soft` 软行「她在等。」 ─────────────
      投喂窗口（feed_hooks 内）开启且玩家 ≥40s 无任何输入 → 极轻灰字一行
      （复用既有 .sd-soft 表面，不新建 UI · R5）。状态描述，非指令（R2 /
@@ -844,6 +932,17 @@
     });
     /* 孤儿检测 */
     var reachable = {}, stack = [firstId()];
+    /* MVP-1/MVP-6（ARG-DIALOGUE-REV）：SO-* 开场（tags:['opening']）与
+       SC-PAUSE-* 中断点（pause_hooks 值）由引擎通用机制进入，静态可达链
+       补种子（与 arc_entry 同族 —— 引擎不认识具体 ID）。 */
+    order.forEach(function (id2) {
+      var nn = index[id2];
+      if (nn && (nn.tags || []).indexOf('opening') >= 0) stack.push(nn.id);
+    });
+    try {
+      var hooks = (g.SD_DATA && g.SD_DATA.pause_hooks) || {};
+      for (var k in hooks) { if (hooks[k]) stack.push(hooks[k]); }
+    } catch (e) { /* 静默 */ }
     while (stack.length) {
       var id = stack.pop();
       if (!id || reachable[id] || !index[id]) continue;

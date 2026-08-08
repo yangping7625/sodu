@@ -75,7 +75,7 @@
         var line = document.createElement('div');
         line.className = 'sd-winline';
         line.setAttribute('data-sd-winline', '');
-        line.textContent = '上一次的会话没有结束。';
+        line.textContent = '之前的记录还在。';
         try { stream.insertBefore(line, stream.firstChild); } catch (e) {}
         /* 裸开无父层可写 → 本页播过即置位（仍在 sudu_save_v1 内，SH-7 守）。
            嵌入态不写：父层在 1.2s 播完后置位（sh_main.js showWindowLine）。 */
