@@ -23,7 +23,7 @@
 
    ⚠️ ARG-BUILD-13 · 批 1（美术方向 v2）放宽了两条，其余不动：
      · gradient 由硬禁改为【预算】：总数 ≤4，且只许出现在
-       .sh-wall / .sh-wall::before / .sh-scan / .sh-vig 四个规则里。
+       .sh-wall / .sh-wall::before / .sh-vig 三个规则里。
        控件填充、按钮、标题栏一律不许用渐变。
      · 颜色白名单由 3 色扩到 20 色（美术方向 v2 §4.3），且扫描范围
        已扩到 rgb()/rgba()。第 21 个颜色进不来 —— 先去改断言。
@@ -98,13 +98,14 @@ body[data-sh="home"] {
   color: var(--sh-icon-fg);
 }
 
-/* ── 氛围四层（零位图 / 零 url() / 零外部请求 / 共约 15 行）───────────────
+/* ── 氛围三层（零位图 / 零 url() / 零外部请求）───────────────────────
      ① .sh-wall  壁纸：实底 + 45° 斜纹（旧显示器上擦不掉的静电吸尘痕）
-     ② .sh-scan  CRT 扫描线
-     ③ .sh-vig   屏幕暗角（把视线从大屏外围收回来，治"周围大片空白"）
-     ④ .sh-noise 胶片噪点：v1 既有内联 <svg>，零改动、不计入渐变预算
-   这三条 gradient 是全文件仅有的渐变，spec.js ⑮A 按「≤4 且只许出现在
-   .sh-wall/.sh-wall::before/.sh-scan/.sh-vig」计数。要加第四条先改断言。
+     ② .sh-vig   屏幕暗角（把视线从大屏外围收回来，治"周围大片空白"）
+     ③ .sh-noise 胶片噪点：v1 既有内联 <svg>，零改动、不计入渐变预算
+   注：CRT 扫描线（.sh-scan）已应可读性反馈移除 —— 它盖在窗口内容之上
+   严重干扰文字阅读。保留壁纸斜纹 + 暗角仍能维持旧屏质感。
+   这三条 gradient（壁纸::before 斜纹 + 暗角 radial）是全文件仅有的渐变，
+   spec.js ⑮A 按「≤4 且只许出现在 .sh-wall/.sh-wall::before/.sh-vig」计数。
 
    ⚠️ 四层全部 pointer-events:none —— 有了壁纸不等于桌面变成可操作面，
       空白处零交互、右键不劫持（R5-12）一格不松。                        */
@@ -117,13 +118,6 @@ body[data-sh="home"] {
   content: ""; position: absolute; left: 0; top: 0; width: 100%; height: 100%;
   background-image: repeating-linear-gradient(45deg, var(--sh-wall-lite) 0 2px, transparent 2px 4px);
   opacity: .18;   /* 斜纹强度：实机可在 .12~.22 微调，勿超 .25 */
-}
-.sh-scan {
-  position: fixed; left: 0; top: 0; width: 100%; height: 100%;
-  z-index: 21; pointer-events: none;
-  /* 暗度已 baked 进 .16 alpha，整层不要再降 opacity。
-     这个 rgba 归一化后 = #0c1210，在 20 色白名单内（spec.js ⑮A 会验）。 */
-  background-image: repeating-linear-gradient(0deg, rgba(12, 18, 16, .16) 0 1px, transparent 1px 3px);
 }
 .sh-vig {
   position: fixed; left: 0; top: 0; width: 100%; height: 100%;

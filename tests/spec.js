@@ -1014,15 +1014,15 @@ function checkShellVisual() {
   });
 
   /* ── ① 渐变预算（原为硬禁 · 美术方向 v2 §16.2 · 批 1）────────────────
-     壁纸斜纹 / CRT 扫描线 / 屏幕暗角这三层是"一块正在发光的旧屏幕"的
+     壁纸斜纹 / 屏幕暗角这两层是"一块正在发光的旧屏幕"的
      全部氛围来源，而它们的零位图实现路径只有 gradient 一条 —— 换位图
      会同时撞上上面的 url() 断言和 0 元资产预算。所以不是解禁，是改成预算：
        · 出现总数 ≤4（repeating-linear / radial 各计 1；噪点是内联 SVG，不计）
-       · 只允许出现在三个氛围层的规则块里（GRAD_OK）
+       · 只允许出现在两个氛围层的规则块里（GRAD_OK）
      控件填充 / 按钮 / 标题栏一律不许用渐变 —— 那才是"UI 作品"的味道。
      想加第四个渐变层？先来改这条断言，别在 CSS 里偷偷加。            */
   const GRAD_MAX = 4;
-  const GRAD_OK = ['.sh-wall', '.sh-wall::before', '.sh-scan', '.sh-vig'];
+  const GRAD_OK = ['.sh-wall', '.sh-wall::before', '.sh-vig'];
   const RULE = /([^{}]*)\{([^{}]*)\}/g;
   let gradTotal = 0, rm;
   const gradBad = [];
@@ -1034,7 +1034,7 @@ function checkShellVisual() {
     if (GRAD_OK.indexOf(sel) < 0) gradBad.push(sel || '(匿名规则)');
   }
   if (gradBad.length) {
-    fail(`[R5 视觉] ${SH_CSS} 渐变仅限氛围三层（壁纸 / 扫描线 / 暗角），` +
+    fail(`[R5 视觉] ${SH_CSS} 渐变仅限氛围两层（壁纸 / 暗角），` +
          `禁止用于控件填充 —— 越界选择器：${[...new Set(gradBad)].join(' , ')}`);
   }
   if (gradTotal > GRAD_MAX) {
