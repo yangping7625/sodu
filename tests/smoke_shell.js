@@ -455,7 +455,7 @@ function main() {
     envFrb.win.SH.Home.open('sd');
     const winLine = envFrb.doc.querySelector('[data-sh-winline]');
     ok(!!winLine, 'I10 ★FR-B 素读窗口首开渲染窗口一行（父层 chrome）');
-    ok(winLine && winLine.textContent === '上一次的会话没有结束。',
+    ok(winLine && winLine.textContent === '之前的记录还在。',
       `I11 ★FR-B 文案逐字（实得「${winLine && winLine.textContent}」）`);
     const winTxt = envFrb.doc.body.textContent;
     ok(!winTxt.includes('dialogue_nodes') && !winTxt.includes('SS-001'),

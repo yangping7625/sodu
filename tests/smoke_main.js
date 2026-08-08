@@ -212,8 +212,8 @@ function main() {
     }
     ok(SD.State.hasFlag('save_offered'), 'S6d save_offered 旗标已置（存档页据此判定 E6）');
 
-    /* ── S7 页脚声明 ───────────────────────────────────────────────── */
-    ok(screen.includes('本站为虚构作品的一部分'), 'S7 A2 页脚虚构声明已渲染');
+    /* ── S7 页脚声明（ARG-DIALOGUE-REV · MVP-4：措辞收紧为设备态） ── */
+    ok(screen.includes('虚构作品的一部分'), 'S7 A2 页脚虚构声明已渲染');
 
     /* ── S8 屏显红线 ───────────────────────────────────────────────── */
     ok(!screen.includes('我在看你'), 'S8a TW-2 明文谜底零命中');
@@ -990,6 +990,66 @@ function main() {
     });
     ok(SDO.State.isRead('node:SD-090'),
       'S23m ★★GD-10 全程只点选项同样走完 G-1 到 SD-090（固定选项恒可点，R8）');
+
+    /* ══ S24 ★ARG-DIALOGUE-REV · Wave 3 对话重构运行期（MVP-1/2/5/6）══
+       静态半侧在 spec.js checkDialogueWave3；这里验真实 DOM 与状态：
+         · MVP-1  SO-001 是首个渲染节点（start() firstId 前 hook）
+         · MVP-5  连续 her line ≥4 → .sd-bubble--nextable 占位条挂载
+         · MVP-6  SC-PAUSE-001 在 SD-068 前被 pause_hooks 插入（可达）
+         · MVP-2  name_given 兜底：喂「我不是助手」→ 她回「……那你先不叫。」
+                 且名字不存、no_name_given 置位、正常推进 SN-006        */
+    const firstNodeEl = stream.querySelector('[data-node]');
+    ok(firstNodeEl && firstNodeEl.getAttribute('data-node') === 'SO-001',
+      `S24a ★MVP-1 首个渲染节点是 SO-001（实得「${firstNodeEl && firstNodeEl.getAttribute('data-node')}」）`);
+    ok(stream.textContent.includes('这台机器被人用过。'),
+      'S24b ★MVP-1 SO-001 文案逐字「这台机器被人用过。」');
+    const nextables = stream.querySelectorAll('.sd-bubble--nextable');
+    ok(nextables.length >= 1,
+      `S24c ★MVP-5 wait 视觉占位条已挂载（连续 her line ≥4，实得 ${nextables.length} 条）`);
+    ok(SD.State.isRead('node:SC-PAUSE-001'),
+      'S24d ★MVP-6 SC-PAUSE-001 已在 SD-068 前播出（pause_hooks 通用插入，可达）');
+
+    /* MVP-2：独立环境 —— 命名节点喂「我不是助手」 */
+    const envN = createEnv({
+      siteRoot: site.siteRoot, pagePath: site.page('sd/index.html'), storage: true
+    });
+    envN.runScripts();
+    const SDN = envN.win.SD;
+    const dockN = envN.doc.getElementById('sd-dock');
+    let nameFallbackShown = false;
+    envN.withClock(() => {
+      envN.clock.runUntilIdle();
+      let guardN = 0;
+      while (guardN++ < 12) {
+        const cardsN = dockN.querySelectorAll('.sd-card');
+        const choicesN = dockN.querySelectorAll('.sd-choice');
+        const formN = dockN.querySelector('.sd-inputbar');
+        if (!formN) break;
+        const curN = SDN.Dialogue.current();
+        if (curN && curN.free_input && curN.free_input.capture === 'name_given') {
+          const inpN = formN.querySelector('.sd-input');
+          inpN.value = '我不是助手';
+          formN.dispatch('submit');
+          envN.clock.runUntilIdle();
+          nameFallbackShown = true;
+          break;
+        }
+        if (choicesN.length) choicesN[0].dispatch('click');
+        else if (cardsN.length) cardsN[0].dispatch('click');
+        else { const inp2 = formN.querySelector('.sd-input'); inp2.value = '你说。'; formN.dispatch('submit'); }
+        envN.clock.runUntilIdle();
+      }
+    });
+    const streamN = envN.doc.getElementById('sd-stream');
+    ok(nameFallbackShown, 'S24e 前置：驱动走到命名节点（SC-005）并提交');
+    ok(streamN.textContent.includes('……那你先不叫。'),
+      'S24f ★MVP-2 喂「我不是助手」→ 她回「……那你先不叫。」（纯反问兜底）');
+    ok(SDN.State.get().name_given == null,
+      'S24g ★MVP-2 兜底后名字不存（name_given 保持 null）');
+    ok(SDN.State.hasFlag('no_name_given'),
+      'S24h ★MVP-2 no_name_given 旗标已置位');
+    ok(SDN.State.isRead('node:SN-006'),
+      'S24i ★MVP-2 兜底后正常推进到 SN-006（名字不存，链不断）');
 
     report();
   } finally {

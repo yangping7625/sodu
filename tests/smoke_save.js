@@ -195,7 +195,7 @@ function main() {
       ok(cErr.length === 0, `C2 无痕模式脚本无异常（${cErr.length}）`);
       ok(c.win.SD.State.persistent() === false, 'C3 持久化探测正确转内存态');
       ok(c.doc.getElementById('sd-flags').childNodes.length > 0, 'C4 无痕模式仍渲染 FLAG 表（不白屏）');
-      ok(c.doc.body.textContent.includes('本站为虚构作品的一部分'), 'C5 无痕模式页脚声明照常渲染');
+      ok(c.doc.body.textContent.includes('虚构作品的一部分'), 'C5 无痕模式页脚声明照常渲染');
       ok(!!c.doc.querySelector('#sd-reset'), 'C6 无痕模式仍挂出清档按钮（不因存储不可用而消失）');
     }
 

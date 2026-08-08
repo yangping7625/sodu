@@ -338,10 +338,16 @@ function checkBudgetAndGraph(SD_DATA) {
   const stack = [nodes.length ? nodes[0].id : null];
   /* G-1 续弧种子（D-G1-02）：切片收尾后由 sd_dialogue.onEnd() 的通用
      「续弧接续」跳转到 tags 含 'arc_entry' 的节点 —— 静态图以 arc_entry
-     为第二起点，SD-001…SD-090 整链因此可达（与运行期行为镜像）。 */
+     为第二起点，SD-001…SD-090 整链因此可达（与运行期行为镜像）。
+     Wave 3（ARG-DIALOGUE-REV）：SO-* 开场（tags:['opening']，MVP-1）与
+     SC-PAUSE-* 中断点（pause_hooks 值，MVP-6）同族补种子 —— 引擎通用
+     机制进入，不写死具体 ID。 */
   nodes.forEach(function (n) {
     if ((n.tags || []).indexOf('arc_entry') >= 0) stack.push(n.id);
+    if ((n.tags || []).indexOf('opening') >= 0) stack.push(n.id);
   });
+  const ph = (SD_DATA && SD_DATA.pause_hooks) || {};
+  Object.keys(ph).forEach(function (k) { if (ph[k]) stack.push(ph[k]); });
   const dangling = [];
   while (stack.length) {
     const id = stack.pop();
@@ -1247,13 +1253,16 @@ function checkShellFraming() {
     fail('[AS-9] FR-B 判定未用 framing_window_seen 写入前快照（CF-4 解耦要求）');
   }
 
-  /* ③ 文案逐字（FR-A 三行 + FR-B 一行，设计真源 §2.2） */
+  /* ③ 文案逐字（FR-A 三行 + FR-B 一行）
+     ⚠️ Wave 3（ARG-DIALOGUE-REV · MVP-3 · §6.4 拍板 A）：FR-B 开窗行
+     措辞由「上一次的会话没有结束。」改为「之前的记录还在。」——
+     仍是设备态消息，FR-B 机制不动（SD-083 承接"上一次"悬念）。 */
   const FR_A = ['这台机器不是你的。', '它被打开过很多次。', '最后一次，没有关。'];
   FR_A.forEach(function (t) {
     if (src.indexOf(t) < 0) fail('[AS-9] FR-A 文案缺失或改字：「' + t + '」（设计真源 §2.2 逐字）');
   });
-  if (src.indexOf('上一次的会话没有结束。') < 0) {
-    fail('[AS-9] FR-B 文案缺失或改字：「上一次的会话没有结束。」（设计真源 §2.2 逐字）');
+  if (src.indexOf('之前的记录还在。') < 0) {
+    fail('[AS-9] FR-B 文案缺失或改字：「之前的记录还在。」（ARG-DIALOGUE-REV §6.4 拍板 A）');
   }
 
   /* ④ app 侧 /sd/ 同样声明两枚布尔（sd_state.js blank()） */
@@ -1314,26 +1323,31 @@ function walkQsw() {
    共同纪律：缺文件即跳过（骨架期 feed_markers 可能未生成）。         */
 
 /* AS-4（SH-0 回归）：既有 173 节点的 text/id/next 与上线版逐字节一致。
-   做法：把当前 dialogue_nodes 中【既有节点（非 SF-* 前缀）】的关键字段
-   连成串做 sha256，与台账基线比对。
+   做法：把当前 dialogue_nodes 中【既有节点】的关键字段连成串做 sha256，
+   与台账基线比对。
    基线 = BUILD-12 组6 提交后的 173 节点（text/id/next 未被组6/组2 触碰）。
    谁动了既有节点当场 fail —— 这是 SH-0 的可执行回归。
    ⚠️ SF-* 节点是设计稿 §8 组2.5 允许的第 3 类「插入」（投喂反应串），
-   不在 AS-4 守护范围内（它们不是"既有"节点）；其结构由 checkSfNodes 单独断言。 */
+   不在 AS-4 守护范围内（它们不是"既有"节点）；其结构由 checkSfNodes 单独断言。
+   ⚠️ Wave 3（ARG-DIALOGUE-REV）允许的第 3 类「插入」同样排除：
+   SO-*（设备态开场，MVP-1）与 SC-PAUSE-*（连播中断点，MVP-6）——
+   它们也是新节点，不是"既有"节点；结构由 checkDialogueWave3 单独断言。 */
 const NODE_BASELINE_SHA = '25309c279e6be2a861ff13a264eeeae44d770daa9639c81c41ec6386f09e6210';
 
 function checkNodeBaseline(SD_DATA) {
   const nodes = (SD_DATA && SD_DATA.dialogue_nodes) || [];
-  const existing = nodes.filter(function (n) { return !/^SF-/.test(n.id || ''); });
+  const existing = nodes.filter(function (n) {
+    return !/^SF-/.test(n.id || '') && !/^(SO-|SC-PAUSE-)/.test(n.id || '');
+  });
   const sig = existing.map(function (n) {
     return n.id + '|' + String(n.text == null ? '' : n.text) +
            '|' + String(n.next == null ? '' : n.next);
   }).join('\n');
   const got = crypto.createHash('sha256').update(sig, 'utf8').digest('hex');
   if (got !== NODE_BASELINE_SHA) {
-    fail(`[AS-4 / SH-0] 既有节点（${existing.length} 个，非 SF-*）的 text/id/next 被改动（基线 ${NODE_BASELINE_SHA.slice(0, 12)}…，实得 ${got.slice(0, 12)}…）—— 既有节点一个字都不许动`);
+    fail(`[AS-4 / SH-0] 既有节点（${existing.length} 个，非 SF-/SO-/SC-PAUSE-*）的 text/id/next 被改动（基线 ${NODE_BASELINE_SHA.slice(0, 12)}…，实得 ${got.slice(0, 12)}…）—— 既有节点一个字都不许动`);
   } else {
-    note(`[AS-4 / SH-0] 既有节点 ${existing.length} 个 text/id/next 与基线逐字节一致（SF-* 新增 ${nodes.length - existing.length} 个不在此列）`);
+    note(`[AS-4 / SH-0] 既有节点 ${existing.length} 个 text/id/next 与基线逐字节一致（SF-* 新增 ${nodes.length - existing.length} 个不在此列，SO-/SC-PAUSE- 另由 Wave 3 断言）`);
   }
 }
 
@@ -1392,6 +1406,104 @@ function checkSfNodes(SD_DATA) {
     if (!referenced[n.id]) fail(`[SF] ${n.id} 未被任何 marker 引用（孤儿反应串）`);
   });
   note(`[SF] SF-* 节点 ${sf.length} 个 · sf_reactions 13 个 marker 全引用 · A=0/B=0`);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ARG-DIALOGUE-REV · Wave 3 对话重构（MVP-1..6）静态断言
+   对应设计稿 §5.4 测试断言清单。运行期半侧在 smoke_main.js S24。
+   ══════════════════════════════════════════════════════════════════════ */
+function checkDialogueWave3(SD_DATA) {
+  const nodes = (SD_DATA && SD_DATA.dialogue_nodes) || [];
+  const byId = {};
+  nodes.forEach(function (n) { byId[n.id] = n; });
+  const need = function (id, tag) {
+    const n = byId[id];
+    if (!n) fail('[W3] 节点缺失：' + id + (tag || ''));
+    return n;
+  };
+
+  /* ── MVP-1 · SO-001（设备态开场） ────────────────────────────────── */
+  const so = need('SO-001', '（设备态开场）');
+  if (so) {
+    if (so.speaker !== 'sys' || so.kind !== 'line')
+      fail('[W3] SO-001 必须 speaker:"sys" kind:"line"（设备态开场，非她的气泡）');
+    if (so.text !== '这台机器被人用过。')
+      fail('[W3] SO-001 文案必须是「这台机器被人用过。」（§6.4 拍板 A，逐字）');
+    if (so.next !== 'SS-001')
+      fail('[W3] SO-001.next 必须指向 SS-001（既有链不动，MVP-1 §5.1）');
+    if ((so.tags || []).indexOf('opening') < 0)
+      fail('[W3] SO-001 必须挂 tags:["opening"]（start() 通用前置 hook，MVP-1）');
+    /* 口吻红线（§4.5）：不解释、不含元层词 */
+    const banned = ['系统', '程序', 'AI', '语言模型', '对话助手', '使用记录', '数据库', '检测到', '历史数据'];
+    banned.forEach(function (w) {
+      if ((so.text || '').indexOf(w) >= 0) fail('[W3] SO-001 含元层词「' + w + '」（§4.5）');
+    });
+    if ((so.text || '').replace(/[。！？…,.!?]/g, '').length > 8)
+      fail('[W3] SO-001 超 8 字（§6.3 限 1 句 ≤8 字，不解释）');
+  }
+
+  /* ── MVP-6 · SC-PAUSE-001（幕4 连播中断点） ──────────────────────── */
+  const scp = need('SC-PAUSE-001', '（幕4 连播中断点）');
+  if (scp) {
+    if (scp.speaker !== 'player' || scp.kind !== 'choice')
+      fail('[W3] SC-PAUSE-001 必须 speaker:"player" kind:"choice"');
+    const labels = (scp.options || []).map(function (o) { return o.label; });
+    if (labels.length !== 3 ||
+        labels[0] !== '……' || labels[1] !== '让我一个人说一会' || labels[2] !== '我想看回之前')
+      fail('[W3] SC-PAUSE-001 必须 3 选项：…… / 让我一个人说一会 / 我想看回之前（§6.4 拍板 A）');
+    (scp.options || []).forEach(function (o, i) {
+      if (o.next !== 'SD-068') fail(`[W3] SC-PAUSE-001.options[${i}].next 必须指向 SD-068`);
+    });
+    if (!scp.options || !scp.options[2] || scp.options[2].silence_ms !== 2000)
+      fail('[W3] SC-PAUSE-001 选项 3「我想看回之前」必须 silence_ms:2000（伪选择：沉默 2s 再继续）');
+    if (scp.next !== 'SD-068') fail('[W3] SC-PAUSE-001.next 必须指向 SD-068');
+    /* GD-R1：选项文字不含「提示」「下一步」类元层词 */
+    if (/提示|下一步|跳过|继续|确定|退出|返回/.test(labels.join('')))
+      fail('[W3] SC-PAUSE-001 选项含 GD-R1 禁词（提示/下一步等）');
+    /* R2 / R5：中断点不携带进度 / 计数元素 */
+    if (scp.progress != null || scp.counter != null || scp.index != null)
+      fail('[W3] SC-PAUSE-001 不得携带进度/计数字段（R2 / R5）');
+  }
+
+  /* ── MVP-6 · pause_hooks 通用接线（arc_entry 同族） ──────────────── */
+  const hooks = (SD_DATA && SD_DATA.pause_hooks) || {};
+  if (!hooks['SD-068']) fail('[W3] pause_hooks 缺 SD-068 → SC-PAUSE-001 接线（MVP-6）');
+  else if (hooks['SD-068'] !== 'SC-PAUSE-001') fail('[W3] pause_hooks[SD-068] 必须是 SC-PAUSE-001');
+  if (hooks['SD-068'] && !byId[hooks['SD-068']]) fail('[W3] pause_hooks 引用不存在的节点');
+  if (hooks['SD-068'] && byId['SD-068'] && byId[hooks['SD-068']].next !== 'SD-068')
+    fail('[W3] 中断点节点.next 必须回指目标节点（FM-1：播完回原链）');
+
+  /* ── MVP-3 · 开窗行措辞（sd_app.js + sh_main.js 两种形态一字不差） ── */
+  const appJs = readIf('js/sd_app.js');
+  if (appJs !== null && appJs.indexOf('之前的记录还在。') < 0)
+    fail('[W3] js/sd_app.js 开窗行必须是「之前的记录还在。」（MVP-3 / §6.4 拍板 A）');
+  const shellJs = readIf('sh_main.js');
+  if (shellJs !== null && shellJs.indexOf('之前的记录还在。') < 0)
+    fail('[W3] sh_main.js FR-B 行必须是「之前的记录还在。」（与裸开形态一字不差）');
+  if (appJs !== null && appJs.indexOf('上一次的会话没有结束。') >= 0)
+    fail('[W3] js/sd_app.js 残留旧开窗行「上一次的会话没有结束。」（MVP-3 未清干净）');
+
+  /* ── MVP-4 · footer_notice 措辞 ──────────────────────────────────── */
+  if (String(SD_DATA.footer_notice || '') !== '虚构作品的一部分。本机的钟还在走。')
+    fail('[W3] footer_notice 必须是「虚构作品的一部分。本机的钟还在走。」（MVP-4 / §6.4 拍板 A）');
+
+  /* ── MVP-5 · wait 视觉占位（静态半侧：CSS 规则 + 引擎引用存在） ──── */
+  const css = readIf('css/sd_chat.css');
+  if (css !== null && css.indexOf('.sd-bubble--nextable') < 0)
+    fail('[W3] css/sd_chat.css 缺少 .sd-bubble--nextable 规则（MVP-5）');
+  const dlg = readIf('js/sd_dialogue.js');
+  if (dlg !== null && dlg.indexOf('sd-bubble--nextable') < 0)
+    fail('[W3] js/sd_dialogue.js 未引用 .sd-bubble--nextable（MVP-5）');
+
+  /* ── X-2：新增文本无绝对年份（SVG 层复扫，防 2011 类历史日期） ───── */
+  const w3texts = [so && so.text, scp && scp.text].concat(
+    (scp && scp.options || []).map(function (o) { return o.label; }),
+    [SD_DATA.footer_notice]
+  ).filter(Boolean);
+  const w3year = w3texts.filter(function (s) { return /\b(?:19|20)\d{2}\b/.test(s); });
+  if (w3year.length) fail('[W3] 新增文本含绝对年份（X-2）：' + w3year.join(' | '));
+
+  note('[W3] 对话重构 Wave 3 静态断言：SO-001 / SC-PAUSE-001 / pause_hooks / 开窗行 / footer_notice / wait 占位 全部通过');
 }
 
 function checkFeedEngine(SD_DATA) {
@@ -1592,6 +1704,7 @@ function main() {
     checkFeedSourceX1(SD_DATA);                // ARG-BUILD-12 · 组6 X-1 出处 ID 巡检
     checkNodeBaseline(SD_DATA);                // ARG-BUILD-12 · AS-4 SH-0 节点回归
     checkSfNodes(SD_DATA);                     // ARG-BUILD-12 · SF-* 反应节点结构（组2）
+    checkDialogueWave3(SD_DATA);               // ARG-DIALOGUE-REV · Wave 3 MVP-1..6 静态断言
     checkFeedEngine(SD_DATA);                  // ARG-BUILD-12 · 组2 投喂引擎红线（AS-1~8 + CF-3）
   }
 
