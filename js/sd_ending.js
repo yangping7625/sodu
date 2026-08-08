@@ -97,14 +97,33 @@
   /* ── TRS（越界）───────────────────────────────────────────────────
      TRS = 0.70×(P_set÷6) + 0.30×min(Q_probe÷5, 1.00)
      P_set：b2/b3/b6/b7/b8/b9 六位置位数。G-1 期仅 b2/b3 可达（上限 2/6）。
-     b2/b3 为【派生】位（§3.2 纪律：绝不重写现有 83 节点，由数据推导）。 */
+     b2/b3 为【派生】位（§3.2 纪律：绝不重写现有 83 节点，由数据推导）。
+
+     ⚠️ CF-2 修复（D-G1R-01 甲案已拍板 · arg_g1_revision_design.md §5.2）：
+       现行公式把 b6 汽水屋到访 / b7 论坛深读 / b8 打开其它 app 全部计入
+       TRS（越界）轴 —— 照新机制认真检索的玩家 TRS 会被顶到 0.767 ≥ 0.67，
+       直接被排除出 E-true（主导策略反转）。甲案 = 时序快照法：
+       · 首次投喂（sd_b1_fed 置位）那一刻，把当时的 b6/b7/b8 快照进
+         3-bit 非布尔字段 trs_seed（sd_state.seedTrs）
+       · 此后 P_set 只用【快照值】+ b2/b3/b9 —— 语义 = 「在她开口邀请
+         之前，你就已经翻过的地方」才算越界（未被邀请的越界）        */
   function trsScore() {
+    var seed = S().trsSeed();
     var p = 0;
     if (derivedB2()) p++;
     if (derivedB3()) p++;
-    if (S().hasFlag('sd_b6_qsw_seen')) p++;
-    if (S().hasFlag('sd_b7_qsw_deep')) p++;
-    if (S().hasFlag('sd_b8_sh_seen')) p++;
+    if (seed) {
+      /* 已投喂：P_set 用快照值 —— 受邀后才翻的不算越界（CF-2 甲案） */
+      if (seed.b6) p++;
+      if (seed.b7) p++;
+      if (seed.b8) p++;
+    } else {
+      /* 未投喂（trs_seed=null）：沿用骨架期行为，b6/b7/b8 实时计入。
+         从未投喂的玩家没有「受邀」语义 —— 翻过就是越界。 */
+      if (S().hasFlag('sd_b6_qsw_seen')) p++;
+      if (S().hasFlag('sd_b7_qsw_deep')) p++;
+      if (S().hasFlag('sd_b8_sh_seen')) p++;
+    }
     if (S().hasFlag('sd_b9_soda_seen')) p++;
     var q = qProbe();
     return 0.70 * (p / 6) + 0.30 * Math.min(q / 5, 1);
@@ -119,13 +138,20 @@
   }
   /* Q_probe：role='sd_g1_probe' 的条目 + 其余 role 中判定为「检索式」的条目
      （疑问式 / 专名 / 无第二人称的疑问句）。幕 3 供给可检索专名，
-     Q_probe 才有源（§4.2）。 */
+     Q_probe 才有源（§4.2）。
+     ⚠️ TRS-α / TRS-β（CF-2）：投喂命中的输入（role 带 feed_ 前缀）与
+     近场未命中（role='near_miss'）从 Q_probe 分子剔除 —— 检索式判据
+     天然全中投喂输入（论坛原文就是专名密集且无第二人称），不剔除的话
+     每喂对一次，玩家就离真结局更远一步。
+     （T-hit / U-1 的输入【不进 input_history】—— CF-3 的 idiolect 排除
+     结构性保证 qProbe 数不到；此处再按 role 防御性过滤一次，双保险。） */
   function qProbe() {
     var hist = S().inputs();
     var count = 0, i, it;
     for (i = 0; i < hist.length; i++) {
       it = hist[i];
       if (it.role === 'sd_g1_probe') { count++; continue; }
+      if (it.role === 'feed_hit' || it.role === 'near_miss') continue;
       if (isQueryLike(S().norm(it.raw))) count++;
     }
     return count;
@@ -174,7 +200,11 @@
   }
   function dayOf(ts) { return Math.floor(ts / DAY_MS); }
 
-  function trsHi() { return TRS_HI_G1; }   // 分阶段常量（D-G1-03）
+  /* D-G1R-01 已拍板：TRS 阈值 = 0.67（TRS_HI_FULL，设计稿目标值）。
+     E 探针窗口 [0.197, 0.900] 内；候选机制（trs_seed + α + β）把认真检索
+     玩家 TRS 压到 ≈0.117，远低于 0.67 → E-true 可达（CF-2 修复）。
+     真正越界（未受邀就翻页）的快照后仍高 → 0.67 是设计稿的判定线。 */
+  function trsHi() { return TRS_HI_FULL; }   // D-G1R-01：0.40(G1期) → 0.67(全量)
 
   /* ── 判定（GDD §3.4 严格自上而下，首个命中即定） ─────────────────── */
   function decide() {

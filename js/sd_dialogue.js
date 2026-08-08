@@ -595,6 +595,14 @@
         var fragEl = R().fragBlock(verdict.frag, n.id + '.feed.frag');
         try { if (SD.Feed.fragHit) SD.Feed.fragHit(fragEl); } catch (e) {}
       }
+      /* ⚠️ CF-2（D-G1R-01 甲案）：首次投喂（sd_b1_fed 首次置位）→ 快照
+         trs_seed（此刻的 b6/b7/b8）。此后 TRS 的 P_set 只用快照值 +
+         b2/b3/b9 —— 受邀后才翻的地方不再算越界（"她开口邀请之前
+         翻过"才算）。幂等：seedTrs 已快照则不覆盖。 */
+      if (!S().hasFlag('sd_b1_fed')) {
+        S().flag('sd_b1_fed', true);
+        try { if (SD.State.seedTrs) SD.State.seedTrs(); } catch (e) { /* 静默 */ }
+      }
       /* ⚠️ 引擎骨架期：marker.reaction 为空（真别名 + SF 反应等文策渊）。
          此处保持通用跳回 —— 播完回原 next，链结构不变。 */
       applyFlags(n.set_flags);

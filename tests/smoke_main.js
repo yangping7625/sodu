@@ -653,6 +653,119 @@ function main() {
     ok(F.hookOf('SC-005') === null && F.hookOf('SC-057') === null,
       'S20t ★AS-6：SC-005 / SC-057 不在投喂窗口（命名 / 谜题通道唯一）');
 
+    /* ── S21 ★ARG-BUILD-12 · 组3 结局轴修复（CF-2 验收）─────────────
+       D-G1R-01 甲案已拍板：
+         · trs_seed 时序快照（首次投喂那一刻快照 b6/b7/b8）
+         · TRS-α：T-hit 输入从 Q_probe 分子剔除
+         · TRS-β：U-1 输入同样剔除；near_miss 不进任何轴
+         · trsHi() = TRS_HI_FULL（0.67）
+       验收：模拟「认真检索玩家」轨迹（开归档 + 读多页 + 命中多条），
+       断言 TRS < 0.67 且可达 E-true —— 我们即将鼓励的行为，系统不再惩罚。 */
+    const envCf2 = createEnv({
+      siteRoot: site.siteRoot, pagePath: site.page('sd/index.html'), storage: true
+    });
+    envCf2.runScripts({ settleMs: 0 });
+    const SC2 = envCf2.win.SD.State;
+    const EC2 = envCf2.win.SD.Ending;
+
+    envCf2.withClock(() => {
+      /* ── 认真检索玩家轨迹 ──
+         1) 首次投喂发生在翻论坛【之前】→ 快照时 b6/b7/b8 全 false */
+      SC2.flag('sd_b1_fed', true);
+      SC2.seedTrs();
+      ok(SC2.trsSeed() && SC2.trsSeed().b6 === false && SC2.trsSeed().b7 === false &&
+         SC2.trsSeed().b8 === false,
+        'S21a ★trs_seed 首次投喂快照 b6/b7/b8 = 0/0/0（受邀前未翻）');
+
+      /* 2) 受邀后翻论坛：b6/b7/b8 实时置位（受邀后行为，不入 TRS） */
+      SC2.flag('sd_b6_qsw_seen', true);
+      SC2.flag('sd_b7_qsw_deep', true);
+      SC2.flag('sd_b8_sh_seen', true);
+
+      /* 3) 受邀去 /save → b2 派生位 */
+      SC2.get().read_flags['page:/save'] = Date.now();
+
+      /* 4) 多次 T-hit / U-1 投喂输入（TRS-α/β 应从 Q_probe 剔除）。
+            （生产里 T-hit/U-1 不进 input_history；这里用带 role 标记的
+              pushInput 验证 qProbe 的防御性剔除也成立 —— 双保险。） */
+      SC2.pushInput('SD-041', '沉默也是一种选项。', 'feed_hit');
+      SC2.pushInput('SD-047', 'v2 到 v3 之间路线有没有被偷偷改过', 'feed_hit');
+      SC2.pushInput('SD-041', '那个论坛的路线存档在哪里', 'near_miss');
+      /* 5) 还有真正的检索式输入（疑问式，非投喂）→ 会计入 Q_probe */
+      SC2.pushInput('SD-021', '第 4 页多出来的那句是什么？', 'sd_g1_probe');
+
+      /* 6) ATT：认真阅读（自陈节点 dwell = baseline，无 EC-03 剔除；
+            同时 markRead —— ATT R_read 分子依赖已读标记） */
+      const confessCf2 = EC2.confessNodes();
+      const dwCf2 = SC2.get().dwell_ms;
+      confessCf2.forEach(function (n) {
+        const clean = String(n.text || '').replace(/\{[A-Za-z_:]+\}/g, '');
+        dwCf2['node:' + n.id] = clean.length * 220;
+        SC2.markRead('node:' + n.id);
+      });
+      /* 7) RET：跨会话回访 */
+      const dNowCf2 = Date.now();
+      SC2.get().leave_ts = [
+        { at: dNowCf2 - 3 * 86400000, from: '/', method: 'x' },
+        { at: dNowCf2 - 1 * 86400000, from: '/', method: 'x' }
+      ];
+      SC2.get().timeline.first_visit_at = dNowCf2 - 4 * 86400000;
+      SC2.commit();
+
+      const scCf2 = EC2.scores();
+      /* TRS 期望：P_set = b2(1) + trs_seed(0) + b9(0) = 1
+         Q_probe = 1（仅 sd_g1_probe 那条，feed_hit/near_miss 被剔除）
+         TRS = 0.70×(1/6) + 0.30×min(1/5,1) = 0.1167 + 0.06 = 0.1767 */
+      console.log('\n  [CF-2 验收] 认真检索玩家：ATT=' + scCf2.att.toFixed(3) +
+        ' TRS=' + scCf2.trs.toFixed(3) + ' RET=' + scCf2.ret);
+      ok(scCf2.trs < 0.67,
+        `S21b ★★CF-2 修复：认真检索玩家 TRS = ${scCf2.trs.toFixed(3)} < 0.67（现行公式会顶到 0.767 ≥ 0.67）`);
+      ok(scCf2.att >= 0.55 && scCf2.ret >= 1,
+        `S21c ★认真检索玩家 ATT=${scCf2.att.toFixed(3)}≥0.55 且 RET=${scCf2.ret}≥1（E-true 的另两轴达标）`);
+      const endingCf2 = EC2.decide();
+      ok(endingCf2 === 'E-true',
+        `S21d ★★CF-2 验收：认真检索玩家可达 E-true（实得「${endingCf2}」）`);
+
+      /* ── 反向验证：真正越界（未受邀就翻 + 检索式输入刷满）仍被挡 ──
+         从未投喂（trs_seed=null）→ TRS 用实时 b6/b7/b8 = 3 + b2 = 4，
+         Q_probe 5 条顶满 → TRS = 0.467 + 0.30 = 0.767 ≥ 0.67 → E-mixed */
+      const envT = createEnv({
+        siteRoot: site.siteRoot, pagePath: site.page('sd/index.html'), storage: true
+      });
+      envT.runScripts({ settleMs: 0 });
+      const ST2 = envT.win.SD.State;
+      const ET2 = envT.win.SD.Ending;
+      envT.withClock(() => {
+        ST2.flag('sd_b6_qsw_seen', true);
+        ST2.flag('sd_b7_qsw_deep', true);
+        ST2.flag('sd_b8_sh_seen', true);
+        ST2.get().read_flags['page:/save'] = Date.now();
+        ['那个论坛的路线存档在哪里', '第 4 页多出来的那句是什么',
+         '傍晚颜色是哪个游戏', '行为记录存在哪里', '为什么结局有分歧'].forEach(function (q) {
+          ST2.pushInput('SD-021', q, 'sd_g1_probe');
+        });
+        const dwT = ST2.get().dwell_ms;
+        ET2.confessNodes().forEach(function (n) {
+          const clean = String(n.text || '').replace(/\{[A-Za-z_:]+\}/g, '');
+          dwT['node:' + n.id] = clean.length * 220;
+          ST2.markRead('node:' + n.id);
+        });
+        const dNowT = Date.now();
+        ST2.get().leave_ts = [
+          { at: dNowT - 3 * 86400000, from: '/', method: 'x' },
+          { at: dNowT - 1 * 86400000, from: '/', method: 'x' }
+        ];
+        ST2.get().timeline.first_visit_at = dNowT - 4 * 86400000;
+        ST2.commit();
+        const scT = ET2.scores();
+        ok(scT.trs >= 0.67,
+          `S21e ★★真正越界（未受邀翻页 + 检索刷满）：TRS = ${scT.trs.toFixed(3)} ≥ 0.67 → 仍被 0.67 挡住（E-true 需有分寸）`);
+        const endingT = ET2.decide();
+        ok(endingT !== 'E-true',
+          `S21f ★真正越界玩家不可达 E-true（实得「${endingT}」）`);
+      });
+    });
+
     report();
   } finally {
     site.cleanup();

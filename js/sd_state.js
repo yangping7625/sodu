@@ -45,6 +45,19 @@
         sd_b10_silence: false,    // 关键节拍沉默累计 ≥3 次（EC-07 豁免前提）
         sd_b11_recall: false      // 复述过素读说过的原话（SD-068 提交时判定）
       },
+      /* ── CF-2（D-G1R-01 甲案已拍板）· trs_seed 时序快照 ────────────
+         3-bit 非布尔字段（不占 12 位布尔位）。在【首次投喂】那一刻
+         （sd_b1_fed 首次置位）快照当时的 b6/b7/b8 状态；此后 TRS 的
+         P_set 只用快照值 + b2/b3/b9 —— 语义 = 「在她开口邀请之前，
+         你就已经翻过的地方」才算越界（未被邀请的越界）。
+         null = 尚未快照（未投喂过，TRS 用实时 b6/b7/b8，即骨架期行为）。 */
+      trs_seed: null,
+
+      /* ── FM-3 · 物理回报：记录/ 的内容（GD-5）────────────────────
+         {FRAG} 截断 24 字，逐条追加（无序号 / 无总数 / 无时间戳 · R2）。
+         空数组 = 未命中过任何标记 → 文件 › 记录/ 保持「无法打开。」 */
+      feed_log: [],
+
       dwell_ms: {},        // { 'node:PC-012': 24310, session_total, max_gap_ms, ... }
       leave_ts: [],        // [{ at, from, method }]
       input_history: [],   // [{ at, node, raw, norm, role }]
@@ -265,6 +278,39 @@
   }
   function hasFlag(nm) { return !!get().path_flags[nm]; }
 
+  /* ── CF-2 · trs_seed 时序快照（D-G1R-01 甲案） ────────────────────
+     首次投喂时由 sd_dialogue 调用：把【此刻】的 b6/b7/b8 状态快照，
+     之后 TRS 的 P_set 只用快照值 + b2/b3/b9。幂等：已快照则不覆盖。
+     语义 = 「在她开口邀请之前翻过的地方」才算越界（未被邀请的越界）。 */
+  function seedTrs() {
+    var d = get();
+    if (d.trs_seed) return d.trs_seed;
+    d.trs_seed = {
+      b6: !!d.path_flags.sd_b6_qsw_seen,
+      b7: !!d.path_flags.sd_b7_qsw_deep,
+      b8: !!d.path_flags.sd_b8_sh_seen
+    };
+    commit();
+    return d.trs_seed;
+  }
+  function trsSeed() { return get().trs_seed || null; }
+
+  /* ── FM-3 · 记录/ 物理回报（GD-5）──────────────────────────────────
+     首次命中 → 记录/ 从「无法打开。」升格为可打开，内有一行；
+     后续命中 → 末尾多一行。内容 = {FRAG} 截断 24 字，无序号 / 无总数 /
+     无时间戳（V-F2 / R2）。空数组 = 未命中过 → 保持无法打开。 */
+  function pushFeedLog(line) {
+    var d = get();
+    if (!(d.feed_log instanceof Array)) d.feed_log = [];
+    d.feed_log.push(String(line == null ? '' : line));
+    commit();
+    return d.feed_log.slice();
+  }
+  function feedLog() {
+    var d = get();
+    return (d.feed_log instanceof Array) ? d.feed_log.slice() : [];
+  }
+
   /* ── 投喂覆盖（feedCover：与参考实现 searchCover 同构） ──────────── */
   function feed(id) {
     var d = get(), cat = ((g.SD_DATA && g.SD_DATA.feed_cover) || {}).catalog || [];
@@ -393,6 +439,8 @@
     cursor: cursor,
     markRead: markRead, isRead: isRead,
     flag: flag, hasFlag: hasFlag,
+    seedTrs: seedTrs, trsSeed: trsSeed,
+    pushFeedLog: pushFeedLog, feedLog: feedLog,
     feed: feed, routeView: routeView, coverN: coverN,
     pushInput: pushInput, inputs: inputs,
     pushTyping: pushTyping, typingEvents: typingEvents,
