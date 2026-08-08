@@ -996,7 +996,6 @@ function checkShellVisual() {
   const BAN = [
     [/border-radius/i,               'R5 全直角：不许圆角'],
     [/box-shadow/i,                  'R5 不许投影'],
-    [/gradient/i,                    'R5 不许渐变'],
     [/backdrop-filter/i,             'R5 不许毛玻璃'],
     [/filter\s*:\s*blur/i,           'R5 不许模糊'],
     [/@font-face/i,                  'R5 零字体文件'],
@@ -1014,13 +1013,71 @@ function checkShellVisual() {
     }
   });
 
-  /* 单色 + 一档灰：全文件颜色字面量必须在白名单内 */
-  const ALLOW = ['#efeee9', '#191a1c', '#8d8c86'];
-  const hex = (css.match(/#[0-9a-fA-F]{3,8}\b/g) || []).map(function (s) { return s.toLowerCase(); });
-  const bad = [...new Set(hex)].filter(function (h) { return ALLOW.indexOf(h) < 0; });
+  /* ── ① 渐变预算（原为硬禁 · 美术方向 v2 §16.2 · 批 1）────────────────
+     壁纸斜纹 / CRT 扫描线 / 屏幕暗角这三层是"一块正在发光的旧屏幕"的
+     全部氛围来源，而它们的零位图实现路径只有 gradient 一条 —— 换位图
+     会同时撞上上面的 url() 断言和 0 元资产预算。所以不是解禁，是改成预算：
+       · 出现总数 ≤4（repeating-linear / radial 各计 1；噪点是内联 SVG，不计）
+       · 只允许出现在三个氛围层的规则块里（GRAD_OK）
+     控件填充 / 按钮 / 标题栏一律不许用渐变 —— 那才是"UI 作品"的味道。
+     想加第四个渐变层？先来改这条断言，别在 CSS 里偷偷加。            */
+  const GRAD_MAX = 4;
+  const GRAD_OK = ['.sh-wall', '.sh-wall::before', '.sh-scan', '.sh-vig'];
+  const RULE = /([^{}]*)\{([^{}]*)\}/g;
+  let gradTotal = 0, rm;
+  const gradBad = [];
+  while ((rm = RULE.exec(css)) !== null) {
+    const n = (rm[2].match(/gradient/gi) || []).length;
+    if (!n) continue;
+    gradTotal += n;
+    const sel = rm[1].split(';').pop().trim().replace(/\s+/g, ' ');
+    if (GRAD_OK.indexOf(sel) < 0) gradBad.push(sel || '(匿名规则)');
+  }
+  if (gradBad.length) {
+    fail(`[R5 视觉] ${SH_CSS} 渐变仅限氛围三层（壁纸 / 扫描线 / 暗角），` +
+         `禁止用于控件填充 —— 越界选择器：${[...new Set(gradBad)].join(' , ')}`);
+  }
+  if (gradTotal > GRAD_MAX) {
+    fail(`[R5 视觉] ${SH_CSS} 渐变声明数 ${gradTotal} > ${GRAD_MAX} —— 氛围是预算，不是装饰`);
+  } else {
+    note(`[R5 视觉] 渐变预算 ${gradTotal}/${GRAD_MAX}，全部落在 ${GRAD_OK.join(' / ')} 内`);
+  }
+
+  /* ── ② 色板白名单 3 → 20 + ③ 扫描范围扩到 rgb() / rgba() ─────────────
+     20 色 = 美术方向 v2 §4.3，壳层 17 色 + 批 1 补入的三色
+     （#0c1210 暗角终点 / #141a18 硬投影 / #4a4740 高对比次级字）。
+     白名单本身不许取消 —— 取消了这台机器第二天就会有第 21 个颜色。
+     同时补一个真实存在的洞：原实现只认 #hex，`rgba(12,18,16,.16)`
+     这类写法可以直接绕过白名单（扫描线的基色恰好就是这么写的）。
+     现在 rgb()/rgba() 归一化成 hex 一起比对；hsl()/lab()/oklch() 等
+     无法静态归一的写法直接判违规，免得下次换个记法又绕过去。       */
+  const ALLOW = [
+    '#20302c', '#2a3a35', '#beb9aa', '#e4dfd1', '#7c776b', '#3b372f',
+    '#2e4a44', '#e8e4d6', '#8a867a', '#d4d0c4',
+    '#16171a', '#6e6a5f', '#c6c1b2',
+    '#efeee9', '#191a1c', '#8d8c86',
+    '#c88a3c',
+    '#0c1210', '#141a18', '#4a4740'
+  ];
+  const lits = (css.match(/#[0-9a-fA-F]{3,8}\b/g) || []).map(function (s) { return s.toLowerCase(); });
+  (css.match(/\brgba?\([^)]*\)/gi) || []).forEach(function (fn) {
+    const n = (fn.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+    if (n.length < 3 || n.some(function (x) { return !isFinite(x); })) { lits.push(fn); return; }
+    lits.push('#' + n.map(function (x) {
+      return ('0' + Math.round(x).toString(16)).slice(-2);
+    }).join(''));
+  });
+  const EXOTIC = css.match(/\b(?:hsla?|hwb|lab|lch|oklab|oklch|color)\s*\(/gi) || [];
+  if (EXOTIC.length) {
+    fail(`[R5 视觉] ${SH_CSS} 出现无法静态归一的颜色写法：${[...new Set(EXOTIC)].join(' ')} ` +
+         `—— 桌面壳只许 #hex 与 rgb()/rgba()，否则白名单形同虚设`);
+  }
+  const bad = [...new Set(lits)].filter(function (h) { return ALLOW.indexOf(h) < 0; });
   if (bad.length) {
     fail(`[R5 视觉] ${SH_CSS} 出现白名单外的颜色：${bad.join(', ')} ` +
-         `—— 只允许纸白/近黑/一档灰（${ALLOW.join(' ')}）`);
+         `—— 只允许美术方向 v2 §4.3 的 ${ALLOW.length} 色`);
+  } else {
+    note(`[R5 视觉] 颜色白名单：${new Set(lits).size} 个字面量（含 rgb/rgba 归一）全部在 ${ALLOW.length} 色内`);
   }
 
   /* 转场时长：> 100ms 就有了"动效设计"的味道 */
@@ -1045,7 +1102,8 @@ function checkShellVisual() {
   } else {
     note(`[AS-7] ${SH_CSS} transition 声明数 ${transCount} ≤ 3（V-R4 动效预算）`);
   }
-  note(`R5 视觉纪律：${SH_CSS} 通过（0 圆角 / 0 投影 / 0 渐变 / 0 字体文件 / 0 url() / 竖排单列 / 单色+一档灰）`);
+  note(`R5 视觉纪律：${SH_CSS} 通过（0 圆角 / 0 投影 / 0 字体文件 / 0 url() / 竖排单列 ` +
+       `/ 渐变限额 ≤${GRAD_MAX} 且仅氛围三层 / 色板 ${ALLOW.length} 色含 rgb·rgba 归一）`);
 }
 
 /* ── (B) X-5 / BR-3 物理隔离 ────────────────────────────────────────

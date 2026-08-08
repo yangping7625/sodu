@@ -20,6 +20,11 @@
        · app 一律用 iframe 载入（X-5 物理隔离）；移动态改真跳转（§7.8 碰撞 2） -->
 <body data-sh="home">
 
+  <!-- ── 氛围四层：全部零位图、零外部请求、零交互（pointer-events:none）──
+       ① 壁纸  ② 扫描线  ③ 暗角  ④ 噪点（v1 既有内联 SVG，零改动）
+       它们只是背景，不是可操作面 —— 空白处零交互、右键不劫持（R5-12）。 -->
+  <div class="sh-wall" aria-hidden="true"></div>
+
   <!-- 顶部：一条线，线以下什么都没有 -->
   <div class="sh-top"></div>
 
@@ -28,6 +33,10 @@
     <filter id="sh-grain"><feTurbulence type="fractalNoise" baseFrequency="0.86" numOctaves="3" stitchTiles="stitch"/></filter>
     <rect width="100%" height="100%" filter="url(#sh-grain)"></rect>
   </svg>
+
+  <!-- CRT 扫描线 + 屏幕暗角：盖在所有内容之上的两层"玻璃" -->
+  <div class="sh-scan" aria-hidden="true"></div>
+  <div class="sh-vig" aria-hidden="true"></div>
 
   <!-- ── 条目列表 ─────────────────────────────────────────────────────
        第一条恒为素读：恒在、恒第一位、恒可点、恒不可隐藏（R8 可扫描断言）。
