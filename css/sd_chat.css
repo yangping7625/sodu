@@ -34,6 +34,12 @@
 .sd-row--her    { justify-content: flex-start; }
 .sd-row--player { justify-content: flex-end; }
 
+/* V-R3（ARG-BUILD-12 · 组5）：幕级留白台阶 —— 幕间间距 ≥ 2.2× 幕内。
+   幕内换人有效间距 ≈ 15px（5px gap + 10px margin-top）；幕首（block 切换，
+   由 sd_render 挂 .sd-row--act）额外 24px → 总 ≥ 39px ≈ 2.6×，越过
+   "玩家分辨门槛"（V-01 规定行距递增但差异不可感 = 不存在的节奏）。 */
+.sd-row--act { margin-top: 24px; }
+
 .sd-bubble {
   max-width: 78%;
   /* PO-IX-02：16px/1.6 的中文在 9px 上下内边距下顶格，+1px 让字坐得住 */
@@ -43,7 +49,9 @@
   background: #e6e6ea;
   color: var(--sd-fg);
   font-size: 16px;
-  line-height: 1.6;
+  /* V-S3（ARG-BUILD-12 · 组5）：4px 基线网格 —— 16px 字号 × 1.75 = 28px
+     （4px × 7），与桌面 20px 行高同处一个 4px 网格（全设备统一节奏）。 */
+  line-height: 1.75;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

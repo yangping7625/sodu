@@ -318,7 +318,7 @@
           if (!applyRedact(n)) {
             var text = interp(rawText);
             if (n.speaker === 'sys') R().sysLine(text, n.id);
-            else R().bubble(n.speaker || 'her', text, n.id);
+            else R().bubble(n.speaker || 'her', text, n.id, n.block);
           }
         } else {
           applyRedact(n);
@@ -360,7 +360,7 @@
       R().typingOn();
       wait(900, false, function () {
         R().typingOff();
-        R().bubble('her', text, n.id + '.' + i);
+        R().bubble('her', text, n.id + '.' + i, n.block);
         /* N-039 位：不追加解释，留足静默 */
         wait(i === lines.length ? 2000 : 700, false, step);
       });

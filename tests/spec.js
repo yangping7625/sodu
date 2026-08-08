@@ -1478,8 +1478,83 @@ function checkFeedEngine(SD_DATA) {
   note('投喂引擎红线：AS-1/2/3/5/6/8 + CF-3（SC-029 idiolect 排除 / SD-068 b11 优先 / SC-035 a1_probe 隔离）');
 }
 
+/* ── (J) 组5 剩余视觉（ARG-BUILD-12 · I 组）────────────────────────
+   把设计稿 §4.2/§4.3 的判据写成可扫描断言：
+     · V-S1 桌面构图锚左上（列表 left = max(8vw,48px)、顶部行高×3）
+     · V-S2 噪点 2.5–3% 且只在桌面层
+     · V-S3 4px 基线网格（桌面 20px 行高 = 4×5；素读气泡 28px = 4×7）
+     · V-R3 幕级留白台阶（sd_render 按 block 挂 .sd-row--act + CSS 24px）
+     · V-R8 插播不抢滚动位置（scrollEnd 距底 ≤80px 才自动滚）
+     · V-R2 三档字号（16 / 13 / 10 —— 页脚与软行同属极小注记档） */
+function checkVisualWave2() {
+  const sh = readIf('sh_main.css');
+  if (sh !== null) {
+    const css = stripCss(sh);
+    if (!/\.sh-list\s*\{[^}]*left\s*:\s*max\(8vw\s*,\s*48px\)/.test(css)) {
+      fail('[V-S1] sh_main.css 的 .sh-list 未锚定左上（left:max(8vw,48px)）—— 空旷要有构图');
+    }
+    if (!/\.sh-list\s*\{[^}]*top\s*:\s*60px/.test(css)) {
+      fail('[V-S1] .sh-list 顶部 1px 线到第一行距离 ≠ 行高×3（60px）');
+    }
+    const noise = /\.sh-noise\s*\{[^}]*opacity\s*:\s*\.(\d{2,3})/.exec(css);
+    if (noise) {
+      const v = parseFloat('0.' + noise[1]);
+      if (v < 0.025 || v > 0.03) fail(`[V-S2] 桌面噪点 ${v} 不在 2.5–3% 区间`);
+    } else {
+      fail('[V-S2] sh_main.css 未找到 .sh-noise 的 opacity');
+    }
+    if (!/line-height\s*:\s*20px/.test(css)) {
+      fail('[V-S3] sh_main.css 桌面行高非 20px（4px 基线网格，= 4×5）');
+    }
+    /* 素读页零噪点：噪点元素只在桌面 index.html */
+    const sdIdx = readIf('sd/index.html');
+    if (sdIdx !== null && /sh-noise/.test(stripJs(sdIdx))) {
+      fail('[V-S2] sd/index.html 出现桌面噪点元素（噪点只作用于桌面层）');
+    }
+  }
+  const chat = readIf('css/sd_chat.css');
+  if (chat !== null) {
+    const cc = stripCss(chat);
+    if (!/\.sd-row--act\s*\{[^}]*margin-top\s*:\s*24px/.test(cc)) {
+      fail('[V-R3] sd_chat.css 缺 .sd-row--act（幕级留白台阶 24px）');
+    }
+    if (!/\.sd-bubble\s*\{[^}]*line-height\s*:\s*1\.75/.test(cc)) {
+      fail('[V-S3] sd_chat.css 气泡行高非 1.75（16px × 1.75 = 28px = 4×7）');
+    }
+    /* V-R2：三档字号（16 / 13 / 10） */
+    const sizes = [];
+    (cc.match(/font-size\s*:\s*(\d+)px/g) || []).forEach(function (s) {
+      const n = parseInt(/font-size\s*:\s*(\d+)px/.exec(s)[1], 10);
+      if (sizes.indexOf(n) < 0) sizes.push(n);
+    });
+    const base = stripCss(readIf('css/sd_base.css') || '');
+    (base.match(/font-size\s*:\s*(\d+)px/g) || []).forEach(function (s) {
+      const n = parseInt(/font-size\s*:\s*(\d+)px/.exec(s)[1], 10);
+      if (sizes.indexOf(n) < 0) sizes.push(n);
+    });
+    const have = [10, 13, 16].every(function (n) { return sizes.indexOf(n) >= 0; });
+    if (!have) {
+      fail(`[V-R2] 三档字号缺失（她正文 16 / 系统行 13 / 极小注记 10，实得 ${sizes.join(',')}）`);
+    } else {
+      note(`[V-R2] 三档字号就位：16 / 13 / 10（她正文 / 系统行 / 页脚·软行）`);
+    }
+  }
+  const render = readIf('js/sd_render.js');
+  if (render !== null) {
+    const rs = stripJs(render);
+    if (!/scrollTop\s*-\s*client[^;]*>\s*80/.test(rs)) {
+      fail('[V-R8] sd_render.scrollEnd 缺「距底 ≤80px 才自动滚」门控（插播不抢回读位置）');
+    }
+    if (!/block\s*&&\s*lastBlock\s*!==\s*null/.test(rs)) {
+      fail('[V-R3] sd_render.bubble 缺 block 幕级切换判定（幕间留白台阶）');
+    }
+  }
+  note(`组5 视觉巡检：V-S1/S2/S3/V-R2/V-R3/V-R8 判据逐条可扫描`);
+}
+
 /* ── 主流程 ──────────────────────────────────────────────────────────── */
 function main() {
+
   const files = [];
   walk(ROOT, files);
   note('扫描部署文件 ' + files.length + ' 个');
@@ -1503,6 +1578,7 @@ function main() {
   checkShellHome();                     // ⑮C 素读入口恒可见
   checkShellBridge();                   // ⑮D SH-6 / X-9 / BR-2 / BR-4 / SH-7
   checkShellFraming();                  // ARG-BUILD-12 · AS-9 CF-4 framing 专用标志
+  checkVisualWave2();                   // ARG-BUILD-12 · 组5 剩余视觉（V-S1/S2/S3/V-R2/R3/R8）
 
   if (!SD_DATA) { fail('无法加载 window.SD_DATA（data/sd_slice.js）'); }
   else {

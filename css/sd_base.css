@@ -30,7 +30,11 @@
              "Noto Sans Mono", "DejaVu Sans Mono", monospace;
 
   --sd-size: 16px;
-  --sd-lh: 1.7;
+  /* V-S3（ARG-BUILD-12 · 组5）：4px 基线网格。16px × 1.75 = 28px（4px×7），
+     与桌面壳 20px 行高（4px×5）同处一个 4px 网格 —— 隐性秩序，全设备一体。
+     ⚠️ 数据层 theme_shift 的 --sd-lh 1.7/1.92 是渐进增强（SD-039/054），
+     与默认 1.75 的差异不可感知且不强依赖 —— 不改节点数据（SH-0）。 */
+  --sd-lh: 1.75;
   --sd-col: 560px;
   --sd-gap: 14px;
   --sd-pad: 20px;
@@ -42,7 +46,7 @@ body[data-site="assistant"] {
   --sd-bg: #ffffff;
   --sd-font-active: var(--sd-font);
   --sd-size: 16px;
-  --sd-lh: 1.7;
+  --sd-lh: 1.75;
   --sd-col: 560px;
   --sd-gap: 14px;
 }
@@ -62,7 +66,8 @@ body[data-site="save"] {
   --sd-line: #c6c6ba;
   --sd-font-active: var(--sd-mono);
   --sd-size: 14px;
-  --sd-lh: 1.35;
+  /* V-S3：14px × 1.43 ≈ 20px（4px × 5）—— 同样落在 4px 基线网格上 */
+  --sd-lh: 20px;
   --sd-col: 520px;
   --sd-gap: 6px;
   --sd-radius: 0;

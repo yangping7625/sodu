@@ -31,8 +31,17 @@
   }
 
   /* ── 气泡 ────────────────────────────────────────────────────────── */
-  function bubble(speaker, text, nodeId) {
+  /* V-R3（ARG-BUILD-12 · 组5）：幕级留白台阶。block 参数 = 节点所属幕
+     （数据层 block 字段）。幕边界（block 变化）给气泡行加 .sd-row--act，
+     CSS 负责把幕间间距做到 ≥2.2× 幕内（可感阈值，玩家能说出"后面变松了"）。
+     ⚠️ 不认具体节点 ID —— 只按 block 切换判定，通用能力。 */
+  var lastBlock = null;
+  function bubble(speaker, text, nodeId, block) {
     var wrap = el('div', 'sd-row sd-row--' + speaker);
+    if (block && lastBlock !== null && block !== lastBlock) {
+      wrap.classList.add('sd-row--act');
+    }
+    if (block) lastBlock = block;
     var b = el('div', 'sd-bubble sd-bubble--' + speaker, text);
     if (nodeId) b.setAttribute('data-node', nodeId);
     wrap.appendChild(b);
@@ -342,6 +351,11 @@
   function scrollEnd() {
     try {
       var s = document.scrollingElement || document.documentElement;
+      /* V-R8（ARG-BUILD-12 · 组5）：玩家向上回读时新消息不抢滚动位置。
+         距底 ≤80px 才自动滚到底；上翻（距底 >80px）时新气泡 / 引用块 /
+         投喂反应插播都不打断回读（设计真源 §4.3 V-R8，PO-IX-25 的 JS 半侧）。 */
+      var client = s.clientHeight || 0;
+      if (s.scrollHeight - s.scrollTop - client > 80) return;
       g.requestAnimationFrame(function () { s.scrollTop = s.scrollHeight; });
     } catch (e) {}
   }
