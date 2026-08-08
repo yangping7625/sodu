@@ -259,6 +259,9 @@
     var n = node(id);
     if (!n) { running = false; return onEnd(); }
 
+    /* GD-7 事件驱动检查点：每次节点推进时结算「投喂窗口停留 ≥40s 无输入」 */
+    checkSoftWait();
+
     /* requires 不满足 → 顺延到 next，不卡死 */
     if (!meets(n)) return go(n.next);
 
@@ -368,6 +371,9 @@
      silence_ms（G-1 measure 字段）：传给探针做沉默采样（b10 写入器）。 */
   function playChoice(n) {
     B().openProbe(n.id, n.measure && n.measure.silence_ms);
+    /* ARG-BUILD-12 · GD-7：投喂窗口节点（feed_hooks 内）开启时，
+       40s 无输入 → [data-sd-soft] 软行「她在等。」（既有表面，非新 UI）。 */
+    armSoftWait(n.id);
 
     var opts = n.options || [];
     var fi = n.free_input;
@@ -379,6 +385,7 @@
         return { label: interp(o.label), _raw: o };
       }), function (picked) {
         B().closeProbe(n.id);
+        clearSoftWait();
         var o = picked._raw;
         R().playerEcho(picked.label);
         applyFlags(o.set_flags);
@@ -533,6 +540,7 @@
     var isA1Probe = !!(n.measure && n.measure.role === 'a1_probe');
     B().closeProbe(n.id, (isA1Probe && verdict && verdict.tier === 'T-hit')
       ? { skipRecompute: true } : undefined);
+    clearSoftWait();
 
     if (fi.capture === 'name_given') {
       var cleaned = I().clean(raw);
@@ -701,6 +709,48 @@
     return false;
   }
 
+  /* ── ARG-BUILD-12 · GD-7：`.sd-soft` 软行「她在等。」 ─────────────
+     投喂窗口（feed_hooks 内）开启且玩家 ≥40s 无任何输入 → 极轻灰字一行
+     （复用既有 .sd-soft 表面，不新建 UI · R5）。状态描述，非指令（R2 /
+     GD-R1 / V-R5：禁祈使 / 疑问 / 「提示」类元层词 ——「她在等。」符合）。
+     ⚠️ 事件驱动（与沉默采样 b10 同模式，无常驻 setTimeout）：
+     无头测试的 runUntilIdle 会把任何挂起定时器当「待办工作」快进，
+     40s 看门狗一挂上就被执行、把探针 gap 推成 49s（S5c 失真）——
+     这是 dom_shim 语义，不是浏览器语义。故到点判定放在【每次交互 /
+     节点切换】的检查点：elapsed ≥40s 且仍在投喂窗口 → 写软行（幂等）。
+     真实浏览器中玩家 40s 后做任意轻交互（滚动/点击/新消息渲染）即触发；
+     完全静止时软行不出现 —— 那个场景玩家不看屏幕，可接受（见 changelog）。
+     ⚠️ 清除只清「她在等。」本身 —— 不覆盖 soft_countdown 写进同一挂点的
+     内容（SS-085 / SD-090 的「下次可访问时间」）。 */
+  var SOFT_WAIT_MS = 40000;
+  var SOFT_WAIT_TEXT = '她在等。';
+  var softWait = null;      // { at, nid } —— 投喂窗口开启时刻（无输入计时起点）
+  var softShown = false;
+  function armSoftWait(nid) {
+    try {
+      if (!SD.Feed || !SD.Feed.hookOf(nid)) return;   // 仅投喂窗口
+      softWait = { at: Date.now(), nid: nid };
+      softShown = false;
+    } catch (e) { /* 静默 */ }
+  }
+  function checkSoftWait() {
+    try {
+      if (!softWait) return;
+      if (softShown) return;
+      if (Date.now() - softWait.at < SOFT_WAIT_MS) return;
+      softShown = true;
+      R().softCountdown(SOFT_WAIT_TEXT);
+    } catch (e) { /* 静默：软行失败不影响可玩性 */ }
+  }
+  function clearSoftWait() {
+    softWait = null;
+    softShown = false;
+    try {
+      var host = document.querySelector('[data-sd-soft]');
+      if (host && host.textContent === SOFT_WAIT_TEXT) host.textContent = '';
+    } catch (e) { /* 静默 */ }
+  }
+
   /* 投喂卡三选一 */
   function playFeed(n) {
     B().openProbe(n.id);
@@ -708,11 +758,33 @@
     if (n.prompt) R().sysLine(interp(n.prompt), n.id);
     R().feedCards(fc.catalog || [], fc.show_source_date, function (card) {
       B().closeProbe(n.id);
+      clearSoftWait();
       S().feed(card.id);
       R().playerEcho('《' + card.title + '》');
       applyFlags(n.set_flags);
       go(n.next);
     });
+    /* ARG-BUILD-12 · GD-3：投喂卡卡片下方开出输入行（三张卡仍可点）。
+       由 feed_hooks 外部表驱动（FH-1）—— 不在此为具体节点写分支。
+       GD-2（UX-1）：placeholder 变化由同一张表驱动（SC-015 →（给她看点什么））。
+       提交走 submitFree 投喂判定，播完回 n.next（FM-1）。 */
+    var hk = null;
+    try { if (SD.Feed) hk = SD.Feed.hookOf(n.id); } catch (e) {}
+    if (hk) {
+      armSoftWait(n.id);
+      var fi2 = {
+        enabled: true, capture: 'free',
+        max_len: (hk.max_len != null) ? hk.max_len : 60,
+        placeholder: hk.placeholder || '',
+        next: n.next
+      };
+      var inp2 = R().freeInput({
+        append: true,
+        max_len: fi2.max_len,
+        placeholder: fi2.placeholder
+      }, function (val) { submitFree(n, fi2, val); });
+      B().watchInput(inp2, n.id);
+    }
   }
 
   function playLink(n) {
@@ -728,6 +800,7 @@
   function onEnd() {
     /* 结算最后一个节点的停留采样（ATT R_dwell） */
     try { B().flushNode(); } catch (e) { /* 静默 */ }
+    clearSoftWait();
 
     /* 续弧接续（D-G1-02 已锁）：当前弧走完时，若存在 tags 含 'arc_entry'
        且【尚未读过】的节点，则跳过去继续。这是一条不认识任何具体 ID 的
@@ -790,7 +863,10 @@
     /* 测试面（前台零泄漏）：submitFree 供 smoke_main 直测 CF-3 采集顺序 */
     submitFree: submitFree,
     current: function () { return current; },
-    running: function () { return running; }
+    running: function () { return running; },
+    /* GD-7 软行：供测试直接驱动检查点（事件驱动，无常驻定时器） */
+    checkSoftWait: checkSoftWait,
+    clearSoftWait: clearSoftWait
   };
 
 })(typeof window !== 'undefined' ? window : globalThis);

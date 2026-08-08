@@ -842,6 +842,155 @@ function main() {
        sfCount === 1,
       'S22n ★U-3 第 3 次起完全静默（不再插播，只回原 next）');
 
+    /* ── S23 ★ARG-BUILD-12 · 组4 引导点（GD-2 / GD-3 / GD-7 / GD-10）─
+       GD-2：SN-010 后 placeholder 变化（投喂窗口表驱动）
+       GD-3：SC-015 卡片下方开出输入行（三张卡仍可点）
+       GD-7：投喂窗口 ≥40s 无输入 → .sd-soft 软行「她在等。」
+       GD-10：死锁保险（全程只沉默 / 全程只点选项 → 均能走完 173 节点） */
+    const envH = createEnv({
+      siteRoot: site.siteRoot, pagePath: site.page('sd/index.html'), storage: true
+    });
+    envH.runScripts();
+    const SDH = envH.win.SD;
+    const dockH = envH.doc.getElementById('sd-dock');
+    let sc015Shot = null;
+    let guardH = 0;
+    envH.withClock(() => {
+      envH.clock.runUntilIdle();
+      while (guardH++ < 60) {
+        const cards = dockH.querySelectorAll('.sd-card');
+        const choices = dockH.querySelectorAll('.sd-choice');
+        const form = dockH.querySelector('.sd-inputbar');
+        if (!cards.length && !choices.length && !form) break;
+        const cur = SDH.Dialogue.current();
+        /* GD-3 抓拍：SC-015（投喂卡）时卡片与输入行必须并存 */
+        if (cur && cur.id === 'SC-015' && !sc015Shot) {
+          sc015Shot = {
+            cards: cards.length,
+            form: !!form,
+            placeholder: form ? form.querySelector('.sd-input').getAttribute('placeholder') : null
+          };
+        }
+        const isProbe = !!(cur && cur.measure && cur.measure.role === 'a1_probe');
+        envH.clock.advance(isProbe ? 9000 : 1200);
+        if (choices.length) choices[0].dispatch('click');
+        else if (cards.length) cards[0].dispatch('click');
+        else {
+          const inp = form.querySelector('.sd-input');
+          inp.value = (cur && cur.free_input && cur.free_input.capture === 'name_given') ? '阿岩' : '你说。';
+          form.dispatch('submit');
+        }
+        envH.clock.runUntilIdle();
+      }
+    });
+    ok(!!sc015Shot, 'S23a 前置：驱动走到 SC-015（投喂卡）');
+    if (sc015Shot) {
+      ok(sc015Shot.cards === 3, `S23b ★GD-3 SC-015 三张卡仍在（实得 ${sc015Shot.cards}）`);
+      ok(sc015Shot.form === true, 'S23c ★★GD-3 SC-015 卡片下方开出输入行（三张卡仍可点）');
+      ok(sc015Shot.placeholder === '（给她看点什么）',
+        `S23d ★★GD-2 placeholder 变化（SN-010 后 =（给她看点什么），实得「${sc015Shot.placeholder}」）`);
+    }
+
+    /* GD-7：投喂窗口 ≥40s 无输入 → 软行「她在等。」（事件驱动检查点） */
+    const envW = createEnv({
+      siteRoot: site.siteRoot, pagePath: site.page('sd/index.html'), storage: true
+    });
+    envW.runScripts({ settleMs: 0 });
+    const SDW = envW.win.SD;
+    const sdSoft = envW.doc.querySelector('[data-sd-soft]');
+    ok(!!sdSoft && sdSoft.textContent === '', 'S23e 前置：软行挂点初始为空');
+    /* 手动进入 SD-010（投喂窗口 free_input 节点） */
+    envW.withClock(() => {
+      SDW.Dialogue.go('SD-010');
+      envW.clock.runUntilIdle();
+      const sd010n = SDW.Dialogue.current();
+      ok(!!sd010n && sd010n.id === 'SD-010' && SDW.Feed.hookOf('SD-010'),
+        'S23f 前置：进入投喂窗口节点 SD-010（hookOf 命中）');
+      /* 40s 内（35s）不显示 */
+      envW.clock.advance(35000);
+      SDW.Dialogue.checkSoftWait();
+      ok(sdSoft.textContent === '',
+        `S23g ★GD-7 40s 内不显示软行（35s 后仍空，实得「${sdSoft.textContent}」）`);
+      /* 越过 40s → 显示 */
+      envW.clock.advance(6000);
+      SDW.Dialogue.checkSoftWait();
+      ok(sdSoft.textContent === '她在等。',
+        `S23h ★★GD-7 ≥40s 无输入 → 软行「她在等。」（实得「${sdSoft.textContent}」）`);
+      ok(!/喂点什么|去论坛|提示|下一步|输入|搜索/.test(sdSoft.textContent),
+        'S23i ★GD-7 软行无祈使 / 疑问 / 「提示」类元层词（状态描述，R2 / GD-R1 / V-R5）');
+      /* 玩家提交 → 软行清除（不覆盖 soft_countdown 之外的内容） */
+      SDW.Dialogue.clearSoftWait();
+      ok(sdSoft.textContent === '', 'S23j ★GD-7 玩家提交后软行清除');
+    });
+
+    /* GD-10：死锁保险回归 —— 全程只沉默（投喂窗口停 95s）走完 173 节点 */
+    const envDead = createEnv({
+      siteRoot: site.siteRoot, pagePath: site.page('sd/index.html'), storage: true
+    });
+    envDead.runScripts();
+    const SDD = envDead.win.SD;
+    const dockD = envDead.doc.getElementById('sd-dock');
+    let silentShots = 0;
+    let guardD = 0;
+    envDead.withClock(() => {
+      envDead.clock.runUntilIdle();
+      while (guardD++ < 60) {
+        const cards = dockD.querySelectorAll('.sd-card');
+        const choices = dockD.querySelectorAll('.sd-choice');
+        const form = dockD.querySelector('.sd-inputbar');
+        if (!cards.length && !choices.length && !form) break;
+        const cur = SDD.Dialogue.current();
+        const isFeedWindow = !!(cur && SDD.Feed && SDD.Feed.hookOf(cur.id));
+        /* 投喂窗口一律沉默 95s（>90s 死锁保险阈值）再推进 */
+        envDead.clock.advance(isFeedWindow ? 95000 : (cur && cur.measure && cur.measure.role === 'a1_probe' ? 9000 : 1200));
+        if (isFeedWindow && choices.length) silentShots++;
+        if (choices.length) choices[0].dispatch('click');
+        else if (cards.length) cards[0].dispatch('click');
+        else {
+          const inp = form.querySelector('.sd-input');
+          inp.value = (cur && cur.free_input && cur.free_input.capture === 'name_given') ? '阿岩' : '你说。';
+          form.dispatch('submit');
+        }
+        envDead.clock.runUntilIdle();
+      }
+    });
+    ok(silentShots > 0,
+      `S23k 前置：投喂窗口 + 选项并存节点被沉默停留（${silentShots} 处）`);
+    ok(SDD.State.isRead('node:SD-090'),
+      'S23l ★★GD-10 全程只沉默（投喂窗口停 95s）仍走完 G-1 到 SD-090（永不软锁，R8）');
+
+    /* GD-10 第二面：全程只点选项（不碰输入框）也走完（默认 drive 已覆盖，
+       这里补一个显式断言：所有并存节点都不输入、只点选项） */
+    const envOpt = createEnv({
+      siteRoot: site.siteRoot, pagePath: site.page('sd/index.html'), storage: true
+    });
+    envOpt.runScripts();
+    const SDO = envOpt.win.SD;
+    const dockO = envOpt.doc.getElementById('sd-dock');
+    let guardO = 0;
+    envOpt.withClock(() => {
+      envOpt.clock.runUntilIdle();
+      while (guardO++ < 60) {
+        const cards = dockO.querySelectorAll('.sd-card');
+        const choices = dockO.querySelectorAll('.sd-choice');
+        const form = dockO.querySelector('.sd-inputbar');
+        if (!cards.length && !choices.length && !form) break;
+        const cur = SDO.Dialogue.current();
+        const isProbe = !!(cur && cur.measure && cur.measure.role === 'a1_probe');
+        envOpt.clock.advance(isProbe ? 9000 : 1200);
+        if (choices.length) choices[0].dispatch('click');
+        else if (cards.length) cards[0].dispatch('click');
+        else {
+          const inp = form.querySelector('.sd-input');
+          inp.value = (cur && cur.free_input && cur.free_input.capture === 'name_given') ? '阿岩' : '你说。';
+          form.dispatch('submit');
+        }
+        envOpt.clock.runUntilIdle();
+      }
+    });
+    ok(SDO.State.isRead('node:SD-090'),
+      'S23m ★★GD-10 全程只点选项同样走完 G-1 到 SD-090（固定选项恒可点，R8）');
+
     report();
   } finally {
     site.cleanup();
