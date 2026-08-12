@@ -80,6 +80,7 @@ jobs:
             --exclude='/tests' \
             --exclude='/promo' \
             --exclude='/design' \
+            --exclude='/docs' \
             --exclude='/publish' \
             --exclude='/tools' \
             --exclude='*.md' \
