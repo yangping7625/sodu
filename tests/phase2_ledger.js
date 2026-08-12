@@ -125,6 +125,16 @@ const STRATA = [
     allowYears: years(2009, 2013).concat([2019]),
   },
   {
+    id: 'xise',
+    label: '夕色文库 · 2013 同人志地层',
+    roots: ['xise'],
+    ownPrefixes: ['xise_'],
+    foreignPrefixes: ['sudu_', 'sd_', 'sh_', 'qsw_', 'xk_', 'soda_'],
+    allowDates: true,
+    /* 2012 年底建站，2013 年活跃（同人志站点） */
+    allowYears: years(2012, 2013),
+  },
+  {
     id: 'files',
     label: '设备文件区 · /files/（2026，尚未创建）',
     roots: ['files'],
