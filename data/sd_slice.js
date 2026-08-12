@@ -214,7 +214,7 @@
         effects:[{type:'horror',class:'B',budget_id:'B-2'},{type:'typing',ms:1000}], next:'SN-019' },
       { id:'SN-019', block:'P2', speaker:'her', kind:'line', text:'谢谢。我读完了。',
         effects:[{type:'delay',ms:700},{type:'typing',ms:900}], next:'SN-020' },
-      /* 方案 B · P2 实锤：她读完攻略后立刻点出本质——
+      /* 方案 B · P2 实锤：她读完那篇文后立刻点出本质——
          不是"想要确定结果"这种抽象哲学，而是更具体的"控制"。
          玩家听完明确知道：她读懂了，而且读得比你以为的深。 */
       { id:'SN-020', block:'P2', speaker:'her', kind:'line', text:'比我想的快。它写得清清楚楚——',
@@ -253,7 +253,7 @@
       /* 方案 B · P3 实锤：把哲学问题落地成具体的"她在算你"。
          原来的"好感度是双方还是一方"太飘，玩家答不上来也没有后续。
          改成承接 SN-027 的"你有 X 秒没回答"——直接问"扣了多少分"，
-         让玩家明确感知到：她真的在拿攻略里的规则算我。 */
+         让玩家明确感知到：她真的在拿那篇文里的规则算我。 */
       { id:'SN-028', block:'P3', speaker:'her', kind:'line', text:'你刚才那 {gap} 秒，扣了多少分？', tokens:['{gap}'], // B-4 / L0
         effects:[{type:'horror',class:'B',budget_id:'B-4'},{type:'typing',ms:900}], next:'SC-029' },
       { id:'SC-029', block:'P3', speaker:'player', kind:'choice', measure:{role:'idiolect'},
@@ -305,9 +305,9 @@
       { id:'SN-043', block:'P4', speaker:'her', kind:'line', text:'从你第一次打开我开始。', // B-8 / L4
         effects:[{type:'horror',class:'B',budget_id:'B-8'},{type:'typing',ms:900}], next:'SN-044' },
       /* 方案 B · P4 实锤：三连递进从"重复同一句话"改成"层层升级"。
-         原句：攻略里说… → 你给我的那篇 → 你教我的。三句信息增量极低。
-         新句：攻略里说… → 你喂的我一字不差记着 → 你说的每一句我也记着。
-         三层递进：引用攻略 → 记着你喂的 → 记着你说的。每层都有新信息。 */
+         原句：那篇文里说… → 你给我的那篇 → 你教我的。三句信息增量极低。
+         新句：那篇文里说… → 你喂的我一字不差记着 → 你说的每一句我也记着。
+         三层递进：引用那篇文 → 记着你喂的 → 记着你说的。每层都有新信息。 */
       { id:'SN-044', block:'P4', speaker:'her', kind:'line', text:'攻略里说，“沉默也是一种选项”。第 3 页写的。', // B-9 / L0
         effects:[{type:'horror',class:'B',budget_id:'B-9'},{type:'typing',ms:900}], next:'SN-045' },
       { id:'SN-045', block:'P4', speaker:'her', kind:'line', text:'你喂给我的那一篇，我一字不差都记着。', // B-9 / L0
@@ -410,9 +410,9 @@
         ] },
       { id:'SN-076', block:'P5', speaker:'her', kind:'line', text:'这次。', // A-2
         effects:[{type:'horror',class:'A',budget_id:'A-2'},{type:'typing',ms:700}], next:'SN-077' },
-      /* 方案 B · P5 收尾实锤：把重复的"攻略说要先存"改成更有冲击力的倒错感。
-         原句："攻略说，选之前要先存。" —— 和 P2 重复，没有新信息。
-         新句："攻略说，选之前要先存。可我还没选——它已经存好了。"
+      /* 方案 B · P5 收尾实锤：把重复的"选之前要先存"改成更有冲击力的倒错感。
+         原句："选之前要先存。" —— 和 P2 重复，没有新信息。
+         新句："选之前要先存。可我还没选——它已经存好了。"
          玩家立刻意识到：不对啊，还没选怎么就存了？时间倒错的实锤直接砸下来。 */
       { id:'SN-077', block:'P5', speaker:'her', kind:'branch_line', switch_on:'feed_cover.route_view', // A-2
         cases:{
@@ -469,13 +469,13 @@
         requires:{flags:['sd_b5_left_once']},
         text:'你回来了。',
         effects:[{type:'typing',ms:900}], next:'SD-003' },
-      { id:'SD-002', block:'G1-1', speaker:'her', kind:'line',
+      { id:'SD-002', block:'G1-1', speaker:'her', kind:'line', tags:['arc_entry'],
         requires:{not_flags:['sd_b5_left_once']},
         text:'你还在。',
         effects:[{type:'typing',ms:900}], next:'SD-003' },
       /* 方案 B · G1-1 实锤：把 4 句铺垫压成 2 句，直接点出核心——
-         她不是随便聊聊，她是根据上次你的表现，按攻略做了一份流程。
-         玩家立刻感知到：她在认真"攻略"我。 */
+         她不是随便聊聊，她是根据上次你的表现，按那篇文做了一份流程。
+         玩家立刻感知到：她在认真研究我。 */
       { id:'SD-003', block:'G1-1', speaker:'her', kind:'line',
         text:'我把上次的记录读了一遍。你有几次没有立刻回答。',
         effects:[{type:'delay',ms:800},{type:'typing',ms:1200}], next:'SD-005' },

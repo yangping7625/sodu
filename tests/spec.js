@@ -1188,7 +1188,7 @@ function checkShellHome() {
    把子页传上来的字符串直接塞进标题栏" —— 那一刻人名就会上去。
    所以断言钉的是【数据通路】，不是文案。                        */
 function checkShellBridge() {
-  const WHITE = ['title_request', 'clock_sync', 'open_window', 'minimize_window'];
+  const WHITE = ['title_request', 'clock_sync', 'open_window', 'minimize_window', 'feed_hint', 'hz_tier', 'explore_nudge'];
   let present = 0;
 
   SH_JS.forEach(function (rel) {
@@ -1421,9 +1421,9 @@ function checkSfNodes(SD_DATA) {
   nodes.forEach(function (n) { byId[n.id] = n; });
   const sf = nodes.filter(function (n) { return /^SF-/.test(n.id || ''); });
 
-  /* ① 31 句全量 */
-  if (sf.length !== 31) {
-    fail(`[SF] SF-* 节点数应为 31（P0 19 + P1 12，实得 ${sf.length}）`);
+  /* ① 43 句全量（P0 19 + P1 12 + P2 12 夕色文库·新帖投喂） */
+  if (sf.length !== 43) {
+    fail(`[SF] SF-* 节点数应为 43（P0 19 + P1 12 + P2 12，实得 ${sf.length}）`);
   }
 
   /* ② 结构：kind / speaker / block / 无 horror / 无 next（不入链） */
@@ -1441,11 +1441,11 @@ function checkSfNodes(SD_DATA) {
     }
   });
 
-  /* ③ sf_reactions：13 个 marker 全引用、引用不悬空、顺序即播报顺序 */
+  /* ③ sf_reactions：20 个 marker 全引用、引用不悬空、顺序即播报顺序 */
   const map = (SD_DATA && SD_DATA.sf_reactions) || {};
   const mkKeys = Object.keys(map);
-  if (mkKeys.length !== 13) {
-    fail(`[SF] sf_reactions 应登记 13 个 marker（实得 ${mkKeys.length}）`);
+  if (mkKeys.length !== 20) {
+    fail(`[SF] sf_reactions 应登记 20 个 marker（实得 ${mkKeys.length}）`);
   }
   mkKeys.forEach(function (key) {
     const ids = (map[key] && map[key].nodes) || [];
