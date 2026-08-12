@@ -37,9 +37,13 @@ OWNER="${REMOTE_NORM%/*}"
 REPO="${REMOTE_NORM##*/}"; REPO="${REPO%.git}"
 HEAD_LINE="$(git log --oneline -1)"
 
-# ── 输入代理端口（默认 7890）──────────────────────────────────────────
-read -r -p "代理端口（默认 ${PROXY_PORT_DEFAULT}）: " PORT_IN
-PORT="${PORT_IN:-${PROXY_PORT_DEFAULT}}"
+# ── 代理端口：优先取 $1，否则交互读（默认 7890）─────────────────────
+if [ -n "${1:-}" ]; then
+  PORT="${1}"
+else
+  read -r -p "代理端口（默认 ${PROXY_PORT_DEFAULT}）: " PORT_IN
+  PORT="${PORT_IN:-${PROXY_PORT_DEFAULT}}"
+fi
 PROXY="http://127.0.0.1:${PORT}"
 
 echo "══ ① push main（代理 ${PROXY}）"

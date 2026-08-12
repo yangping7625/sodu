@@ -7,10 +7,11 @@
       window.parent / window.top —— 归档是一份 2011 年的死镜像，
       它不知道自己正被谁打开；这份"无知"就是 X-5 的全部内容。
 
-   协议（X-9 / BR-1）：白名单三条，除此之外一律不存在。
+   协议（X-9 / BR-1）：白名单四条，除此之外一律不存在。
       title_request   子 → 父   { t, v:string }   素读的标题漂移交由本机渲染
       open_window     子 → 父   { t, v:string }   v1 只用于给"存档"那一条【具名】
       clock_sync      父 → 子   { t, v:number }   本机改过时间，页内时序跟上
+      minimize_window 子 → 父   { t, v:string }   Esc 键请求最小化（UX 打磨：焦点在 iframe 时的键盘可达）
 
    载荷纪律（BR-1 / BR-2）：
       只传纯字符串 / 纯数值。禁传 HTML、禁传 CSS、禁传选择器、禁传函数名，
@@ -92,6 +93,19 @@
     S.flag = wrapped;
   }
 
+  /* ── 子 → 父 ③：Esc 请求最小化（UX 打磨 · 键盘可达） ────────────
+     焦点在 iframe 输入框里时，键盘事件不会冒泡到父窗口 ——
+     所以子侧也得监听 Esc，把请求转发出去。
+     只在嵌入态生效，裸开静默（裸开没有"窗口"可最小化）。 */
+  function bindEsc() {
+    try {
+      g.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Escape') return;
+        post('minimize_window', 'esc');
+      });
+    } catch (e) {}
+  }
+
   /* ── 父 → 子：时间同步（CL-2）──────────────────────────────────────
      本机上把时间往前拨，页内的 6h 冷却锁 / 时序判定必须跟着走，
      否则玩家会看见"时钟已经是明天了，她却说你刚走"。 */
@@ -112,6 +126,7 @@
     if (!host) return;
     wrapTitle();
     wrapFlag();
+    bindEsc();
     try { g.addEventListener('message', onMessage); } catch (e) {}
     /* 回访：她早就递过存档了，这次进来直接把那一条认下来。 */
     if (offeredNow()) ask('save');

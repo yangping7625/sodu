@@ -56,6 +56,15 @@
     if (h) h.textContent = conf.title || '';
     var w = document.querySelector('[data-sd-written]');
     if (w) w.textContent = 'WRITTEN AT ' + T().fmtStamp(S().now());
+
+    /* 结局感知 · 第一层：标题字距微妙变化
+       E-true → 最宽（她记得最清楚）
+       E-mixed → 微宽
+       E-shallow → 不变（默认）
+       呼应「字距变宽」设定，只有对比过多结局才会注意到，符合 R2。 */
+    var ending = S().get().ending;
+    if (ending === 'E-true' && h) h.classList.add('sd-slot--e-true');
+    else if (ending === 'E-mixed' && h) h.classList.add('sd-slot--e-mixed');
   }
 
   /* ── flag 表 ─────────────────────────────────────────────────────── */
@@ -66,7 +75,9 @@
       if (!row.redacted && v === null) return;
 
       var li = document.createElement('div');
-      li.className = 'sd-flag' + (row.redacted ? ' sd-flag--redacted' : '');
+      li.className = 'sd-flag' +
+        (row.redacted ? ' sd-flag--redacted' : '') +
+        (row.trace ? ' sd-flag--trace' : '');
 
       var k = document.createElement('span');
       k.className = 'sd-flag__k';
@@ -106,6 +117,16 @@
         return dw.avg_reply_ms ? (T().secs(dw.avg_reply_ms, 1) + 's') : null;
       case '{last_seen}':
         return T().fmtStamp(d.timeline.last_leave_at || S().now());
+      case '{trace_blocks}':
+        /* 结局感知 · 第二层：痕迹方块数量
+           E-true: 6 格 / E-mixed: 4 格 / E-shallow: 2 格
+           未判定结局 → null（不渲染，E6 逻辑）
+           用全角方块 █，极淡色，像压痕一样 */
+        if (!d.ending) return null;
+        var n = d.ending === 'E-true' ? 6 : d.ending === 'E-mixed' ? 4 : 2;
+        var s = '';
+        for (var i = 0; i < n; i++) s += '\u2588';
+        return s;
       default:
         return tpl;
     }

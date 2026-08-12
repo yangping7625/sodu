@@ -215,6 +215,18 @@ function main() {
     const savedB = JSON.parse(env.localStorage.getItem('sudu_save_v1')).horror_spent.B;
     ok(savedB.indexOf('SH-B1') >= 0, 'C12 SH-B1 席位已登记进存档（不回显给玩家）');
 
+    /* minimize_window：Esc 请求最小化（UX · 焦点在 iframe 时的键盘可达） */
+    const visBeforeMin = SH.Home.visible();
+    say(env, kid, { t: 'minimize_window', v: 'esc' });
+    ok(!SH.Home.visible(),
+      'C13 ★UX minimize_window 消息触发窗口最小化（Esc 键盘可达）');
+    ok(!env.win.document.querySelector('[data-sh-win]').hasAttribute('data-open'),
+      'C14 最小化后窗口 chrome 收起（data-open 移除）');
+    /* 重新打开，确认不影响后续操作 */
+    SH.Home.open('sd');
+    ok(SH.Home.visible() === 'sd',
+      'C15 最小化后可重新打开，恢复正常');
+
     /* ══ D · 存档单键与前向兼容 ══════════════════════════════════ */
     const keys = Object.keys(env.localStorage._dump());
     ok(keys.length === 1 && keys[0] === 'sudu_save_v1',
@@ -295,7 +307,7 @@ function main() {
     const ltPayload = envIn.outbox.filter((m) => String((m.data || {}).v || '').indexOf('<') >= 0);
     ok(ltPayload.length === 0, `F8 ★BR-2 子侧自己也过滤 "<"（异常 ${ltPayload.length} 条）`);
     const badType = envIn.outbox.filter((m) =>
-      ['title_request', 'open_window'].indexOf((m.data || {}).t) < 0);
+      ['title_request', 'open_window', 'minimize_window'].indexOf((m.data || {}).t) < 0);
     ok(badType.length === 0,
       `F9 ★X-9 子侧只发白名单内的消息类型（越界 ${badType.length} 条）`);
     const longPayload = envIn.outbox.filter((m) => String((m.data || {}).v || '').length > 60);

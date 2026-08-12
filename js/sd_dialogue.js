@@ -48,6 +48,17 @@
   var skipRequested = false;
   var current = null;
   var ladder = null;     // 谜题提示阶梯（free_input.puzzle 期间存活）
+
+  /* ── 桥接：子 → 父（桌面壳） ─────────────────────────────────────
+     白名单，全部纯字符串。BR-1~BR-4 合规。
+     失败静默降级（裸开 /sd/ 时没有父窗口，不影响任何东西）。 */
+  function tellShell(type, val) {
+    try {
+      if (g.parent && g.parent !== g.self && g.parent.postMessage) {
+        g.parent.postMessage({ t: String(type || ''), v: val == null ? '' : String(val) }, '*');
+      }
+    } catch (e) { /* 静默：跨源 / 无父窗口 都不管 */ }
+  }
   /* ARG-DIALOGUE-REV · MVP-5：连续 her line 计数（wait 视觉占位触发条件）。
      连续 her line ≥4 时，每句气泡挂 .sd-bubble--nextable（可点击加速锚点）。 */
   var herStreak = 0;
@@ -60,6 +71,9 @@
     /* ARG-BUILD-12 · U-1 / U-3 节流计数是会话内存（R2：无进度痕迹，
        刷新即重置）。进页即清零。 */
     try { if (SD.Feed && SD.Feed.resetSession) SD.Feed.resetSession(); } catch (e) {}
+    /* 恐怖档位初始化：从存档读回，刷新后保持。
+       必须在 start() 之前完成，避免首帧白一下再变灰。 */
+    initHorrorTier();
     return order.length;
   }
 
@@ -148,6 +162,56 @@
     return a.length ? a[0] : null;
   }
 
+  /* ── 恐怖档位驱动（纸的不安 · 6 档） ──────────────────────────────
+     每个 horror effect 可选带 tier 字段（L1~L5）。
+     旧节点（无 tier）按 budget_id 编号映射：
+       B-1 ~ B-3   → L1   （轻微不安）
+       B-4 ~ B-7   → L2   （明显发冷）
+       B-8 ~ B-10  → L3   （压迫）
+       B-11 ~ B-14 → L4   （不对劲）
+       B-K1 ~ B-K3 → L4   （真结局段）
+       A-1         → L3   （第一段高潮）
+       A-2         → L4   （第二段高潮）
+     只升不降：纸一旦变灰了就不会变回来。
+     切换无过渡（硬切）——你不知道什么时候变的。 */
+  var TIER_MAP = {
+    'B-1':'L1','B-2':'L1','B-3':'L1',
+    'B-4':'L2','B-5':'L2','B-6':'L2','B-7':'L2',
+    'B-8':'L3','B-9':'L3','B-10':'L3',
+    'B-11':'L4','B-12':'L4','B-13':'L4','B-14':'L4',
+    'B-K1':'L4','B-K2':'L4','B-K3':'L4',
+    'A-1':'L3',
+    'A-2':'L4'
+  };
+
+  function applyHorrorTier(n) {
+    var e = firstEffect(n, 'horror');
+    if (!e) return;
+    var tier = e.tier || TIER_MAP[e.budget_id];
+    if (!tier) return;
+    if (S().setHorrorTier(tier)) {
+      /* 档位上升 → 写到 <html data-hz>，CSS 变量表接管。
+         硬切，无过渡。 */
+      try {
+        var de = document.documentElement;
+        if (de) de.setAttribute('data-hz', tier);
+      } catch (err) { /* 静默 */ }
+      /* 通知桌面壳同步档位（桌面壳侧有自己的氛围层）。 */
+      tellShell('hz_tier', tier);
+    }
+  }
+
+  /* 初始化档位：从存档读回，刷新后保持。 */
+  function initHorrorTier() {
+    var t = S().horrorTier();
+    if (t && t !== 'G') {
+      try {
+        var de = document.documentElement;
+        if (de) de.setAttribute('data-hz', t);
+      } catch (e) { /* 静默 */ }
+    }
+  }
+
   function applyTitle(n) {
     var e = firstEffect(n, 'title');
     if (!e) return;
@@ -210,6 +274,12 @@
           break;
         case 'soft_countdown':
           armSoftCountdown(n);
+          break;
+        case 'explore_nudge':
+          /* 卡关点修复 · 探索提示：G-1 结局后触发桌面图标微动效，
+             引导玩家去探索外部网页（汽水屋等）。
+             不在对话流里加文字，不破坏结局留白。 */
+          tellShell('explore_nudge');
           break;
         default: break;
       }
@@ -344,6 +414,7 @@
     var visible = n.render !== false;
 
     if (!horrorGate(n)) return go(n.next);
+    applyHorrorTier(n);
 
     wait(delayMs, noSkip, function () {
       if (visible && typeMs && n.speaker === 'her') R().typingOn();
@@ -387,6 +458,7 @@
      每句气泡带 data-node="<id>.<序号>"，供 effects:redact 精确定位。 */
   function playA1(n) {
     if (!horrorGate(n)) return go(n.next);
+    applyHorrorTier(n);
 
     var pack = B().a1Lines();
     var lines = pack.lines || [];
@@ -677,13 +749,21 @@
       }
       /* 首次命中：插播 {FRAG} 引用块 + marker 反应。
          FM-3：首次命中 → 设备侧 记录/ 升格（sh_fm.js 由 SD 侧触发）。 */
+      /* ⚠️ P0-2 · 首次投喂命中强化反馈：
+         - 提前保存 isFirstFeed 标记（在置位前）
+         - 首次命中时 FRAG 后加更长停顿，营造"她在认真辨认"的仪式感
+         - SF 序列前插入一句特殊开场白，让玩家明确感知"这次不一样" */
+      var isFirstFeed = !S().hasFlag('sd_b1_fed');
       /* ⚠️ CF-2（D-G1R-01 甲案）：首次投喂（sd_b1_fed 首次置位）→ 快照
          trs_seed（此刻的 b6/b7/b8）。此后 TRS 的 P_set 只用快照值 +
          b2/b3/b9 —— 受邀后才翻的地方不再算越界（"她开口邀请之前
          翻过"才算）。幂等：seedTrs 已快照则不覆盖。 */
-      if (!S().hasFlag('sd_b1_fed')) {
+      if (isFirstFeed) {
         S().flag('sd_b1_fed', true);
         try { if (SD.State.seedTrs) SD.State.seedTrs(); } catch (e) { /* 静默 */ }
+        /* SH-G2 · 首次投喂命中 → 通知桌面壳，触发图标渐进具名
+           （归档 → 汽水屋 / 文件 → 记录）。只发一次。 */
+        tellShell('feed_hint');
       }
       /* FE-03（TW）：{FRAG} 渲染前过 tripwire_guard —— 若当前屏处于
          TW-1/2/3 禁令窗口（屏尾已出现禁词插值形态），一律不渲染引用块，
@@ -700,13 +780,30 @@
         try { S().pushFeedLog(fragLogLine(verdict.frag)); } catch (e) { /* 静默 */ }
       }
       /* 播 marker 的 SF 反应串（Wave 2 真别名接线）：先 {FRAG} 引用块，
-         再依次播 SF 气泡，播完回原 next（FM-1：链结构永不因投喂改变）。 */
+         再依次播 SF 气泡，播完回原 next（FM-1：链结构永不因投喂改变）。
+         P0-2：首次命中时插入特殊开场白 + 延长停顿，强化"啊哈时刻"。 */
       var sfLines = sfLinesOf(verdict.marker.sfNodes);
+      if (isFirstFeed) {
+        /* 首次命中专属：她先是一愣，然后说出这句——
+           让玩家明确感知"投喂有用，我找对了方向"。 */
+        sfLines.unshift('……你居然找得到这个。');
+      }
       if (sfLines.length) {
-        playInterlude(sfLines, n.id + '.feed.sf', function () {
-          applyFlags(n.set_flags);
-          go(fi.next || n.next);
-        });
+        /* 首次命中：FRAG 后多停 800ms，让"她在认真读"的感觉落地 */
+        var firstFeedDelay = isFirstFeed ? 800 : 0;
+        if (firstFeedDelay > 0) {
+          wait(firstFeedDelay, false, function () {
+            playInterlude(sfLines, n.id + '.feed.sf', function () {
+              applyFlags(n.set_flags);
+              go(fi.next || n.next);
+            });
+          });
+        } else {
+          playInterlude(sfLines, n.id + '.feed.sf', function () {
+            applyFlags(n.set_flags);
+            go(fi.next || n.next);
+          });
+        }
       } else {
         applyFlags(n.set_flags);
         go(fi.next || n.next);

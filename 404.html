@@ -6,8 +6,119 @@
   <title>这里没有东西</title>
   <meta name="robots" content="noindex">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/sd_base.css">
-  <link rel="stylesheet" href="css/sd_404.css">
+  <!--
+    Bug B 修复（404 深层路径裸奔）：
+    1. CSS 全部内联 —— 任何深度下样式不丢，零 JS 也能正常显示。
+    2. "回到开头"链接由 JS 自动探测根路径 —— 本地 /v1/ 与 GH Pages /sodu/v1/ 都适配。
+       探测原理：favicon.svg 与 404.html 同属仓库根，逐层向上试加载，
+       能加载成功的那一层就是根。JS 失败时兜底为 ../index.html。
+  -->
+  <style>
+/* ===== 内联 sd_base.css ===== */
+:root {
+  --sd-bg: #ffffff;
+  --sd-fg: #1a1a1c;
+  --sd-dim: #76767c;
+  --sd-faint: #949499;
+  --sd-line: #ececef;
+  --sd-font: system-ui, -apple-system, "Segoe UI", "Noto Sans SC",
+             "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --sd-mono: ui-monospace, SFMono-Regular, Menlo, Consolas,
+             "Noto Sans Mono", "DejaVu Sans Mono", monospace;
+  --sd-size: 16px;
+  --sd-lh: 1.75;
+  --sd-col: 560px;
+  --sd-gap: 14px;
+  --sd-pad: 20px;
+  --sd-radius: 2px;
+}
+body[data-site="assistant"] {
+  --sd-bg: #ffffff;
+  --sd-font-active: var(--sd-font);
+  --sd-size: 16px;
+  --sd-lh: 1.75;
+  --sd-col: 560px;
+  --sd-gap: 14px;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  background: var(--sd-bg);
+  color: var(--sd-fg);
+  font-family: var(--sd-font-active, var(--sd-font));
+  font-size: var(--sd-size);
+  line-height: var(--sd-lh);
+  overflow-x: hidden;
+  line-break: strict;
+  overflow-wrap: break-word;
+  text-spacing-trim: space-first;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 1.2s linear;
+}
+a { color: inherit; }
+button, input {
+  font: inherit;
+  color: inherit;
+}
+.sd-wrap {
+  width: 100%;
+  max-width: var(--sd-col);
+  margin: 0 auto;
+  padding: 0
+           max(var(--sd-pad), env(safe-area-inset-right, 0px))
+           0
+           max(var(--sd-pad), env(safe-area-inset-left, 0px));
+}
+.sd-foot {
+  margin-top: 40px;
+  padding: 16px 0 calc(18px + env(safe-area-inset-bottom, 0px));
+}
+.sd-notice {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--sd-dim);
+  letter-spacing: .02em;
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  body { transition: background-color 1.2s linear !important; }
+}
+:focus-visible {
+  outline: 2px solid var(--sd-dim);
+  outline-offset: 1px;
+  border-radius: inherit;
+}
+
+/* ===== 内联 sd_404.css ===== */
+.sd-404 {
+  min-height: 68vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: clamp(110px, 20vh, 190px);
+}
+.sd-404__title {
+  margin: 0;
+  font-size: 16px;
+  color: var(--sd-dim);
+  letter-spacing: .02em;
+}
+.sd-404__link {
+  font-size: 14px;
+  color: var(--sd-fg);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  display: inline-block;
+  padding: 12px 16px;
+}
+  </style>
 </head>
 <!-- DX-01 同步项：静态标注地层（本页与 index 同属 assistant）。 -->
 <body data-site="assistant">
@@ -36,5 +147,42 @@
       <p class="sd-notice">虚构作品的一部分。本机的钟还在走。</p>
     </footer>
   </div>
+
+  <script>
+  /* 404 根路径自动探测
+     —— 与 404.html 同目录的 favicon.svg 是锚点，逐层向上试加载，
+        能成功的最小深度就是仓库根。兼容本地直布与 GitHub Pages 子路径。 */
+  (function () {
+    var link = document.querySelector('.sd-404__link');
+    if (!link) return;
+
+    var segs = location.pathname.split('/').filter(Boolean);
+    var depth = segs.length;
+    var found = false;
+
+    function prefixFor(d) {
+      var s = '';
+      for (var i = 0; i < d; i++) s += '../';
+      return s || './';
+    }
+
+    function tryDepth(d) {
+      if (d < 0 || found) return;
+      var prefix = prefixFor(d);
+      var img = new Image();
+      img.onload = function () {
+        if (found) return;
+        found = true;
+        link.href = prefix;
+      };
+      img.onerror = function () {
+        tryDepth(d - 1);
+      };
+      img.src = prefix + 'favicon.svg';
+    }
+
+    tryDepth(depth);
+  })();
+  </script>
 </body>
 </html>

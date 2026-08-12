@@ -41,6 +41,8 @@
 
     /* /save 常驻入口：进页先判一次（上个会话被邀请过 → 这次进来门就在） */
     mountSaveEntry();
+    /* 老论坛入口：进页先判一次（命中过投喂 → 门就在） */
+    mountQswEntry();
 
     /* 收尾：软倒计时（只显示不阻断 —— R8 / R10） */
     SD.onDialogueEnd = function () {
@@ -51,6 +53,8 @@
       }
       /* 本会话里她刚把存档递出来 → 这一弧走完时把门留在页面上 */
       mountSaveEntry();
+      /* 本会话里有过投喂命中 → 老论坛入口留在页面上 */
+      mountQswEntry();
     };
 
     /* ARG-BUILD-12 · 组1 FR-B：素读窗口首开一行（CF-4）
@@ -127,6 +131,36 @@
     try { if (SD.Router && SD.Router.rel) href = SD.Router.rel(href); } catch (e) {}
     a.setAttribute('href', href);
     a.textContent = '存档 001';
+    host.appendChild(a);
+  }
+
+  /* ── 老论坛常驻入口 ──────────────────────────────────────────────
+     卡关点修复：玩家投喂命中后，页面上悄悄出现一个"老论坛"入口。
+     设计原则与存档入口一致（N3 纪律）：
+       · 首次投喂命中前，这里彻底不存在；
+       · 命中之后才留下一行，语义是「她承认了那里有东西」，
+         玩家不用再切到桌面去找归档图标。
+     R5：小字、点线下划线、与存档入口同风格，不做成导航栏。
+     幂等：重复调用不会写出第二行。 */
+  function mountQswEntry() {
+    var host;
+    try { host = document.querySelector('[data-sd-ret]'); } catch (e) { return; }
+    if (!host) return;
+
+    var S = SD.State;
+    var log = [];
+    try { log = S.feedLog(); } catch (e) {}
+    if (!log || !log.length) return;
+    if (host.querySelector('.sd-ret__qsw')) return;
+
+    var a = document.createElement('a');
+    a.className = 'sd-ret__a sd-ret__qsw';
+    /* 相对路径（红线⑨：子路径部署可达）。
+       从 /sd/ 退到根，再进 /qsw/ */
+    var href = '../qsw/';
+    try { if (SD.Router && SD.Router.rel) href = SD.Router.rel(href); } catch (e) {}
+    a.setAttribute('href', href);
+    a.textContent = '老论坛';
     host.appendChild(a);
   }
 

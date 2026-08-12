@@ -54,6 +54,17 @@
   line-height: 1.75;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  /* UX 打磨：气泡入场 80ms 淡入。
+     极短、linear、接近硬切 —— 只是消除"凭空跳出来"的那一下突兀感。
+     尊重 reduce-motion 偏好。 */
+  animation: sd-bubble-in 80ms linear 1;
+}
+@keyframes sd-bubble-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sd-bubble { animation: none; }
 }
 .sd-bubble--her    { border-bottom-left-radius: 6px; }
 .sd-bubble--player {
@@ -225,6 +236,12 @@ body[data-temp="shifted"] .sd-dock {
   cursor: pointer;
 }
 .sd-choice:active { background: #f1f1f4; }
+/* UX 打磨：键盘聚焦态（方向键导航时的视觉反馈）。
+   零光晕、零动效，只加深描边 —— 跟输入框聚焦同语系（PO-IX-20）。 */
+.sd-choice:focus-visible {
+  outline: none;
+  border-color: var(--sd-dim);
+}
 
 /* 选项 + 自由输入并存（引导选项在上，自由输入在下）：
    一条发丝级分隔线 + 呼吸间距，够把两种交互分开，不加任何屏显文字。 */
@@ -380,6 +397,7 @@ body:has(.sd-cards) .sd-clock {
 }
 .sd-ret__a:hover,
 .sd-ret__a:focus-visible { color: var(--sd-dim); }
+.sd-ret__a + .sd-ret__a { margin-left: 14px; }
 
 /* ── PO-IX-19 · 全站唯一移动断点（430px 覆盖至 iPhone Pro Max 竖屏；
       桌面由 .sd-wrap 的 max-width:560px 处理） ───────────────────────── */

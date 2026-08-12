@@ -1,0 +1,231 @@
+/* ==========================================================================
+   sd_horror.css · 素读恐怖呈现层（纸的不安）
+   真源：design/art/01_art_bible.md · 纸基调延伸
+
+   与沨镇的区别：沨镇是「媒介崩坏」（雾/颗粒/故障闪/抖动），
+   素读是「纸出了问题」——所有恐怖效应都围绕「这张纸越来越不对劲」。
+
+   气质：冷 · 静 · 慢 · 不确定。
+   玩家不会看到变化发生，只会在某个时刻意识到：
+   「这张纸……好像和刚才不一样了。」
+
+   6 档：G / L1 / L2 / L3 / L4 / L5
+   效应：
+     1. 纸色温（paper_temp）   — 暖白 → 冷白 → 灰 → 死灰
+     2. 墨色加深（ink_deepen） — 反向加深，世界越灰字越重
+     3. 暗角（vignette）      — 径向渐变，逐步收紧
+     4. 颗粒（grain）          — 内联 SVG 噪点，逐步加重
+     5. 纸纹畸变（paper_artifact）— L4+ 出现极淡的多余横线
+     6. 气泡羽化（bubble_fray） — 越深的档位，她的气泡边缘越虚
+
+   纪律：
+     · 全部走 CSS 变量 + data-hz 属性档位切换
+     · 零 @keyframes / 零 animation / 零 transform
+     · 档位切换无过渡——硬切（你不知道什么时候变的）
+     · 零位图、零字体文件、零外部请求
+     · prefers-reduced-motion：全部静态效应保留（本来就没动画）
+   ======================================================================== */
+
+/* ── 变量表 · 6 档 ────────────────────────────────────────────────
+   原始值（raw）+ 计算值（实际用）分离，
+   方便 .fx-reduced 做统一乘算。 */
+
+:root{
+  /* G 档（常态） */
+  --hz-paper-raw:  #efeee9;   /* 纸白，与 --sh-paper 一致 */
+  --hz-ink-raw:    #191a1c;   /* 近墨 */
+  --hz-muted-raw:  #8d8c86;   /* 次级文字 */
+  --hz-vig-raw:    0;         /* 暗角强度 */
+  --hz-vig-stop-raw: 75%;     /* 暗角起始位置 */
+  --hz-grain-raw:  0;         /* 颗粒强度 */
+  --hz-ghost-raw:  0;         /* 纸纹畸变强度 */
+  --hz-fray-raw:   0;         /* 气泡羽化强度 */
+
+  /* 计算值（默认 = G 档） */
+  --hz-paper:  var(--hz-paper-raw);
+  --hz-ink:    var(--hz-ink-raw);
+  --hz-muted:  var(--hz-muted-raw);
+  --hz-vig:    var(--hz-vig-raw);
+  --hz-vig-stop: var(--hz-vig-stop-raw);
+  --hz-grain:  var(--hz-grain-raw);
+  --hz-ghost:  var(--hz-ghost-raw);
+  --hz-fray:   var(--hz-fray-raw);
+}
+
+/* L1 · 轻微不安 —— 纸微微发冷，说不清哪变了 */
+html[data-hz="L1"]{
+  --hz-paper-raw:  #ecebed;
+  --hz-ink-raw:    #16171a;
+  --hz-muted-raw:  #7d7c76;
+  --hz-vig-raw:    .06;
+  --hz-vig-stop-raw: 72%;
+  --hz-grain-raw:  .015;
+  --hz-ghost-raw:  0;
+  --hz-fray-raw:   0;
+}
+
+/* L2 · 明显发冷 —— 纸偏灰了，字变重了 */
+html[data-hz="L2"]{
+  --hz-paper-raw:  #e4e3dd;
+  --hz-ink-raw:    #111215;
+  --hz-muted-raw:  #6e6d68;
+  --hz-vig-raw:    .12;
+  --hz-vig-stop-raw: 68%;
+  --hz-grain-raw:  .03;
+  --hz-ghost-raw:  0;
+  --hz-fray-raw:   .3;
+}
+
+/* L3 · 压迫 —— 纸是灰的，暗角收进来了 */
+html[data-hz="L3"]{
+  --hz-paper-raw:  #d8d7d0;
+  --hz-ink-raw:    #0c0d10;
+  --hz-muted-raw:  #5e5d58;
+  --hz-vig-raw:    .22;
+  --hz-vig-stop-raw: 60%;
+  --hz-grain-raw:  .05;
+  --hz-ghost-raw:  .04;
+  --hz-fray-raw:   .6;
+}
+
+/* L4 · 不对劲 —— 纸上出现了不该有的纹路 */
+html[data-hz="L4"]{
+  --hz-paper-raw:  #c8c7c0;
+  --hz-ink-raw:    #08090c;
+  --hz-muted-raw:  #4e4d49;
+  --hz-vig-raw:    .34;
+  --hz-vig-stop-raw: 52%;
+  --hz-grain-raw:  .075;
+  --hz-ghost-raw:  .10;
+  --hz-fray-raw:   .9;
+}
+
+/* L5 · 死纸 —— 纸是死灰的，字是纯黑的，一切静止 */
+html[data-hz="L5"]{
+  --hz-paper-raw:  #b5b4ad;
+  --hz-ink-raw:    #050608;
+  --hz-muted-raw:  #3e3d39;
+  --hz-vig-raw:    .50;
+  --hz-vig-stop-raw: 44%;
+  --hz-grain-raw:  .10;
+  --hz-ghost-raw:  .18;
+  --hz-fray-raw:   1;
+}
+
+/* ── 效应 1 & 2：纸色 + 墨色 ────────────────────────────────────
+   直接接管 sd_base.css 的 --sd-bg 和文字色。
+   用 html[data-hz] body[data-site] 选择器保证特异性足够。
+   data-hz 在 <html> 上（和 CSS 变量表 :root 对齐），
+   data-site 在 <body> 上（原有体系），所以选择器要分开写。 */
+
+html[data-hz] body[data-site]{
+  background: var(--hz-paper);
+  color: var(--hz-ink);
+}
+html[data-hz] body[data-site] .sd-bubble--her{
+  color: var(--hz-ink);
+}
+html[data-hz] body[data-site] .sd-meta,
+html[data-hz] body[data-site] .sd-flag__k{
+  color: var(--hz-muted);
+}
+
+/* ── 效应 3：暗角 ────────────────────────────────────────────────
+   固定定位全屏覆盖，pointer-events:none。
+   径向渐变：中心透明，边缘渐暗。 */
+
+.sd-vig{
+  position: fixed;
+  left: 0; top: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 50;
+  opacity: var(--hz-vig);
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0%,
+    transparent var(--hz-vig-stop),
+    rgba(20, 22, 28, 1) 100%);
+}
+
+/* ── 效应 4：颗粒 ────────────────────────────────────────────────
+   内联 SVG feTurbulence，零位图、零外部请求。
+   mix-blend-mode: multiply —— 颗粒只在纸面上显，不影响文字。 */
+
+.sd-grain{
+  position: fixed;
+  left: 0; top: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 51;
+  opacity: var(--hz-grain);
+  background-repeat: repeat;
+  background-size: 200px 200px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+/* ── 效应 5：纸纹畸变 ────────────────────────────────────────────
+   纸上出现极淡的水平条纹，像旧扫描件或受潮的纸。
+   L3 起出现，L4/L5 加重。
+   用 repeating-linear-gradient 实现，零位图。 */
+
+.sd-ghost{
+  position: fixed;
+  left: 0; top: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 49;
+  opacity: var(--hz-ghost);
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0px,
+      transparent 23px,
+      rgba(60, 65, 75, .35) 23px,
+      rgba(60, 65, 75, .35) 24px,
+      transparent 24px,
+      transparent 47px,
+      rgba(40, 45, 55, .2) 47px,
+      rgba(40, 45, 55, .2) 48px
+    );
+  mix-blend-mode: multiply;
+}
+
+/* ── 效应 6：气泡羽化 ────────────────────────────────────────────
+   她的气泡边缘越来越虚，像墨水在纸上晕开了。
+   用 box-shadow 扩散模拟，不引入新颜色。
+   注意：只影响她的气泡（.sd-bubble--her），玩家气泡始终干净——
+   「你写的字是清楚的，她的越来越不对劲」。 */
+
+html[data-hz] body[data-site] .sd-bubble--her{
+  box-shadow: 0 0 calc(6px * var(--hz-fray))
+              calc(2px * var(--hz-fray))
+              rgba(25, 26, 28, calc(.08 * var(--hz-fray)));
+}
+
+/* ── 减弱效果开关 .fx-reduced ──────────────────────────────────
+   与桌面壳 .fx-reduced 同源（同一存档键）。
+   乘算：暗角 ×0.5 / 颗粒 ×0.4 / 纸纹 ×0 / 羽化 ×0.3
+   纸色和墨色不减弱——那是内容本身，不是特效。 */
+
+html.fx-reduced{
+  --hz-vig:    calc(var(--hz-vig-raw) * .5);
+  --hz-grain:  calc(var(--hz-grain-raw) * .4);
+  --hz-ghost:  0;
+  --hz-fray:   calc(var(--hz-fray-raw) * .3);
+}
+
+/* ── prefers-reduced-motion ─────────────────────────────────────
+   全部静态效应本来就没动画，所以这里不需要特殊处理。
+   只确保没有任何 motion 相关的东西在跑。 */
+
+@media (prefers-reduced-motion: reduce){
+  /* 全部效应都是静态的，无需额外降级 */
+}
+
+/* ── 桌面壳窗口内的额外约束 ────────────────────────────────────
+   当素读嵌在桌面壳 iframe 里时，暗角和颗粒应该被裁剪到窗口内，
+   而不是铺满整个视口。
+   但因为是 iframe，fixed 定位相对于 iframe 视口，天然就是对的。
+   这里留个标记，防止以后有人加全屏覆盖层破了窗口感。 */

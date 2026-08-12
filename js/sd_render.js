@@ -181,6 +181,7 @@
   function choices(options, onPick) {
     clearDock();
     var box = el('div', 'sd-choices');
+    var btns = [];
     (options || []).forEach(function (opt, i) {
       var btn = el('button', 'sd-choice', opt.label);
       btn.setAttribute('type', 'button');
@@ -188,10 +189,36 @@
         clearDock();
         onPick(opt, i);
       });
+      /* UX 打磨：选项键盘导航。
+         ↑/↓ 在选项间循环切换焦点，Enter 选中当前。
+         纯选项节点：第一个选项自动聚焦（键盘用户直接能选）。 */
+      btn.addEventListener('keydown', function (ev) {
+        if (ev.key === 'ArrowUp' || ev.key === 'ArrowDown') {
+          ev.preventDefault();
+          var idx = btns.indexOf(ev.target);
+          if (idx < 0) return;
+          var next = ev.key === 'ArrowDown'
+            ? (idx + 1) % btns.length
+            : (idx - 1 + btns.length) % btns.length;
+          btns[next].focus();
+        }
+      });
+      btns.push(btn);
       box.appendChild(btn);
     });
     dock.appendChild(box);
     scrollEnd();
+    /* 纯选项节点首项自动聚焦（键盘用户直接能选）。
+       延迟一帧判断：并存节点（选项 + 自由输入）下，
+       freeInput 会紧接着把输入框挂进 dock，首项就不该抢焦点
+       —— 输入框才是主交互，选项靠 ↑ 键上去。 */
+    if (btns.length) {
+      setTimeout(function () {
+        if (!dock.querySelector('.sd-inputbar')) {
+          try { btns[0].focus(); } catch (e) {}
+        }
+      }, 0);
+    }
     return box;
   }
 

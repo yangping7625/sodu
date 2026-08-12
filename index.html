@@ -9,80 +9,128 @@
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="sh_main.css">
 </head>
-<!-- ARG-BUILD-11 / S15：本页原为聊天页，现已迁至 /sd/（内容零改动）。
-     这里是那台被捡到的机器本身：一条 1px 线、一列条目、一个只报时的钟。
-     它不是操作系统，它是一台只有四个功能的机器（R5 / §7.6.3）。
-
-     纪律速查：
-       · 图标区是【竖排单列列表】，不是网格（R5-7）
-       · 无任务栏、无顶栏、无 Dock、无壁纸、无通知（R5-1/2/3/9/11）
-       · 空白处零交互、右键不劫持（R5-12）
-       · app 一律用 iframe 载入（X-5 物理隔离）；移动态改真跳转（§7.8 碰撞 2） -->
+<!-- 仿真桌面 · Windows 98 风格
+     一条任务栏、一列桌面图标、一个开始菜单、可拖拽的窗口。
+     CUA 斜面浮雕语汇贯穿始终。 -->
 <body data-sh="home">
 
-  <!-- ── 氛围三层：全部零位图、零外部请求、零交互（pointer-events:none）──
-       ① 壁纸  ② 暗角  ③ 噪点（v1 既有内联 SVG，零改动）
-       扫描线已应可读性反馈移除。它们只是背景，不是可操作面
-       —— 空白处零交互、右键不劫持（R5-12）。 -->
+  <!-- 壁纸 + 暗角 + 噪点 -->
   <div class="sh-wall" aria-hidden="true"></div>
-
-  <!-- 顶部：一条线，线以下什么都没有 -->
-  <div class="sh-top"></div>
-
-  <!-- 1.5% 噪点：内联 SVG，零位图、零外部请求（0 元预算 / R5-9） -->
   <svg class="sh-noise" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
     <filter id="sh-grain"><feTurbulence type="fractalNoise" baseFrequency="0.86" numOctaves="3" stitchTiles="stitch"/></filter>
     <rect width="100%" height="100%" filter="url(#sh-grain)"></rect>
   </svg>
-
-  <!-- 屏幕暗角：盖在所有内容之上的一层"玻璃"（扫描线已应可读性反馈移除） -->
   <div class="sh-vig" aria-hidden="true"></div>
 
-  <!-- ── 条目列表 ─────────────────────────────────────────────────────
-       第一条恒为素读：恒在、恒第一位、恒可点、恒不可隐藏（R8 可扫描断言）。
-       最后一条开局无标签（P-c 痕迹）—— 它不是"以后会出现的图标"，
-       它现在就在那，只是还没有名字（SH-B1 / §5.4）。 -->
-  <ul class="sh-list" data-sh-list>
-    <li class="sh-item" data-sh-item="sd">
-      <button type="button" class="sh-btn" data-sh-open="sd">
-        <span class="sh-g sh-g--solid"></span><span class="sh-label">素读</span>
+  <!-- 桌面图标（左上排列） -->
+  <div class="sh-desktop">
+    <div class="sh-item" data-sh-item="sd">
+      <button type="button" class="sh-icon" data-sh-open="sd" title="素读">
+        <div class="sh-icon__glyph"><div class="g-icon g-sudu"></div></div>
+        <span class="sh-icon__label">素读</span>
       </button>
-    </li>
-    <li class="sh-item" data-sh-item="qsw">
-      <button type="button" class="sh-btn" data-sh-open="qsw">
-        <span class="sh-g sh-g--rows"><i></i><i></i><i></i></span><span class="sh-label">归档</span>
+    </div>
+    <div class="sh-item" data-sh-item="qsw">
+      <button type="button" class="sh-icon" data-sh-open="qsw" title="归档">
+        <div class="sh-icon__glyph"><div class="g-icon g-archive"></div></div>
+        <span class="sh-icon__label">归档</span>
       </button>
-    </li>
-    <li class="sh-item" data-sh-item="fm">
-      <button type="button" class="sh-btn" data-sh-open="fm">
-        <span class="sh-g sh-g--cells"><i></i><i></i><i></i><i></i></span><span class="sh-label">文件</span>
+    </div>
+    <div class="sh-item" data-sh-item="fm">
+      <button type="button" class="sh-icon" data-sh-open="fm" title="文件">
+        <div class="sh-icon__glyph"><div class="g-icon g-files"></div></div>
+        <span class="sh-icon__label">文件</span>
       </button>
-    </li>
-    <li class="sh-item" data-sh-item="save">
-      <span class="sh-mute" data-sh-slot="save"><span class="sh-g sh-g--dot"></span></span>
-    </li>
-  </ul>
+    </div>
+    <div class="sh-item" data-sh-item="save">
+      <span class="sh-icon sh-icon--mute" data-sh-slot="save" style="opacity:.5">
+        <div class="sh-icon__glyph"><div class="g-icon g-save"></div></div>
+        <span class="sh-icon__label">存档</span>
+      </span>
+    </div>
+  </div>
 
-  <!-- ── 窗口（同时只有一个可见 · 不可拖拽 · 不可缩放 · 无最大化）──── -->
+  <!-- 窗口层 -->
   <div class="sh-stage">
     <section class="sh-win" data-sh-win>
-      <div class="sh-bar">
-        <button type="button" class="sh-ctl sh-ctl--sheet" data-sh-act="min" aria-label="返回">←</button>
+      <div class="sh-bar" data-sh-drag>
+        <div class="sh-bar__icon"></div>
         <span class="sh-bar__t" data-sh-title></span>
         <span class="sh-bar__c">
-          <button type="button" class="sh-ctl sh-ctl--min" data-sh-act="min" aria-label="最小化">—</button>
+          <button type="button" class="sh-ctl sh-ctl--sheet" data-sh-act="min" aria-label="返回">←</button>
+          <button type="button" class="sh-ctl sh-ctl--min" data-sh-act="min" aria-label="最小化">_</button>
+          <button type="button" class="sh-ctl sh-ctl--max" data-sh-act="max" aria-label="最大化">□</button>
           <button type="button" class="sh-ctl sh-ctl--close" data-sh-act="close" aria-label="关闭">×</button>
         </span>
       </div>
       <div class="sh-body" data-sh-body></div>
+      <div class="sh-resize" data-sh-resize></div>
     </section>
   </div>
 
-  <!-- 只读列表视图（文件 app 用；不产出独立 HTML 页面） -->
+  <!-- 开始菜单 -->
+  <div class="sh-start-menu" data-sh-menu>
+    <div class="sh-start-side">本机</div>
+    <div class="sh-start-items">
+      <div class="sh-start-item" data-sh-open="sd">
+        <div class="sh-start-item__ico"><div class="g-icon g-sudu" style="width:20px;height:20px;left:0;top:0;border-width:1px;"></div></div>
+        <span>素读</span>
+      </div>
+      <div class="sh-start-item" data-sh-open="qsw">
+        <div class="sh-start-item__ico"><div class="g-icon g-archive" style="width:20px;height:14px;left:0;top:3px;border-width:1px;"></div></div>
+        <span>归档</span>
+      </div>
+      <div class="sh-start-item" data-sh-open="fm">
+        <div class="sh-start-item__ico"><div class="g-icon g-files" style="width:20px;height:14px;left:0;top:3px;border-width:1px;"></div></div>
+        <span>文件</span>
+      </div>
+      <div class="sh-start-sep"></div>
+      <div class="sh-start-item" data-sh-open="save">
+        <div class="sh-start-item__ico"><div class="g-icon g-save" style="width:16px;height:20px;left:2px;top:0;border-width:1px;"></div></div>
+        <span>存档</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 任务栏 -->
+  <div class="sh-taskbar">
+    <button type="button" class="sh-start-btn" data-sh-start>
+      <span class="sh-start-logo"></span>
+      <span>开始</span>
+    </button>
+    <div class="sh-tb-sep"></div>
+    <div class="sh-tb-apps" data-sh-tb-apps>
+      <!-- 运行中应用按钮由 JS 动态生成 -->
+    </div>
+    <div class="sh-tb-sep"></div>
+    <div class="sh-tray">
+      <div class="sh-tray__icon" title="音量"></div>
+      <div class="sh-tray__icon" title="网络"></div>
+      <button type="button" class="sh-clock" data-sh-clock>00:00</button>
+    </div>
+  </div>
+
+  <!-- 时钟面板 -->
+  <div class="sh-panel" data-sh-panel>
+    <div class="sh-panel__t" data-sh-panel-clock>00:00</div>
+    <div class="sh-panel__l" data-sh-panel-date>—</div>
+    <div class="sh-panel__g">特效</div>
+    <button type="button" class="sh-panel__b" data-sh-panel-fx>减弱特效</button>
+    <button type="button" class="sh-panel__r" data-sh-panel-reset>全部重置</button>
+  </div>
+
+  <!-- 首启三行（FR-A） -->
+  <div class="sh-framing" data-sh-framing>
+    <p class="sh-framing__l">这台机器不是你的。</p>
+    <p class="sh-framing__l">它被打开过很多次。</p>
+    <p class="sh-framing__l">最后一次，没有关。</p>
+  </div>
+
+  <!-- 只读列表视图（文件 app 用） -->
   <script src="sh_fm.js"></script>
-  <!-- 本机的钟：跨 app 常驻、跨窗口不重置、跨会话持久（CL-1~CL-3） -->
+  <!-- 时钟 -->
   <script src="sh_clock.js"></script>
-  <!-- 装配 -->
+  <!-- 桌面壳主逻辑 -->
   <script src="sh_main.js"></script>
 </body>
 </html>

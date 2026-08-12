@@ -106,16 +106,21 @@
   /* ── 常驻钟 ───────────────────────────────────────────────────────── */
   function mount() {
     if (clockEl) return clockEl;
-    var el = doc.createElement('button');
-    el.setAttribute('type', 'button');
-    el.setAttribute('data-sh-clock', '');
-    el.className = 'sh-clock';
-    el.setAttribute('aria-label', '当前时间');
+    /* 优先复用页面上已有的时钟元素（任务栏托盘里的），
+       没有的话再动态创建一个（兼容裸开 / 旧布局）。 */
+    var el = doc.querySelector('[data-sh-clock]');
+    if (!el) {
+      el = doc.createElement('button');
+      el.setAttribute('type', 'button');
+      el.setAttribute('data-sh-clock', '');
+      el.className = 'sh-clock';
+      el.setAttribute('aria-label', '当前时间');
+      try { (doc.body || doc.documentElement).appendChild(el); } catch (e) {}
+    }
     el.textContent = label();
     el.addEventListener('click', function () {
       if (panelEl) closePanel(); else openPanel();
     });
-    try { (doc.body || doc.documentElement).appendChild(el); } catch (e) {}
     clockEl = el;
     /* 无头环境没有 setInterval：静态显示当前时刻即可，不抛、不阻断。 */
     try {

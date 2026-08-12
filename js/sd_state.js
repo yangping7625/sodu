@@ -390,13 +390,33 @@
     if (!cls || !id) return false;
     var d = get(), arr = d.horror_spent[cls];
     if (!arr) { arr = d.horror_spent[cls] = []; }
-    if (arr.indexOf(id) >= 0) return false;    // 已花过 → 不重播
+    if (arr.indexOf(id) >= 0) return false;    /* 已花过 → 不重播 */
     arr.push(id); commit();
     return true;
   }
   function hasSpent(cls, id) {
     var arr = get().horror_spent[cls] || [];
     return arr.indexOf(id) >= 0;
+  }
+
+  /* ── 恐怖档位（纸的不安 · G/L1/L2/L3/L4/L5） ──────────────────────
+     只升不降：纸一旦变灰了就不会变回来。
+     档位由 horror effect 的 tier 字段驱动；旧节点（无 tier）按编号映射。
+     持久化：存 horror_tier，刷新后保持。 */
+  function horrorTier() {
+    var d = get();
+    return d.horror_tier || 'G';
+  }
+  function setHorrorTier(t) {
+    if (!t) return false;
+    var order = ['G', 'L1', 'L2', 'L3', 'L4', 'L5'];
+    var cur = order.indexOf(horrorTier());
+    var tgt = order.indexOf(t);
+    if (tgt < 0 || tgt <= cur) return false;     /* 只升不降 */
+    var d = get();
+    d.horror_tier = t;
+    commit();
+    return true;
   }
 
   /* ── 存档表揭示状态 ──────────────────────────────────────────────── */
@@ -447,6 +467,7 @@
     dwell: dwell, dwellAll: dwellAll,
     pushLeave: pushLeave, lastLeave: lastLeave,
     spendHorror: spendHorror, hasSpent: hasSpent, spentBefore: spentBefore,
+    horrorTier: horrorTier, setHorrorTier: setHorrorTier,
     reveal: reveal, isRevealed: isRevealed,
     norm: norm,
     sess: function () { return sess; },

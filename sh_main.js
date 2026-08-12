@@ -153,6 +153,18 @@
   var cur = null;          // 当前【可见】的 app；同时只有一个
   var titleReq = 0;        // 本会话收到的 title 变更次数（SH-B3 的节拍源）
 
+  /* ── 仿真桌面新增：窗口位置/尺寸 + 拖拽 + 任务栏 ──────────────── */
+  var dragState = null;    // 拖拽状态：{dx, dy}
+  var resizeState = null;  // 缩放状态
+  var maximized = false;   // 是否最大化
+  var restoredPos = null;  // 最大化前的位置/尺寸
+  var startMenuEl = null;  // 开始菜单元素
+  var taskbarEl = null;    // 任务栏 app 区
+  var tbButtons = {};      // id → 任务栏按钮元素
+
+  /* 默认窗口位置与尺寸（居中偏左上，经典 Windows 风格） */
+  var DEFAULT_WIN = { left: 120, top: 40, width: 640, height: 480 };
+
   /* ARG-BUILD-12 · CF-4：首启三行 / 窗口一行的写入前快照。
      在 ready() 最早分支（写 booted_at 之前、open('sd') 之前）取值，
      与 booted_at / win_state.sd 完全解耦（专用布尔，SH-7 单键内）。 */
@@ -166,6 +178,12 @@
 
   var FR_A_LINES = ['这台机器不是你的。', '它被打开过很多次。', '最后一次，没有关。'];
   var FR_B_LINE = '之前的记录还在。';
+
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
 
   function narrow() {
     try {
@@ -189,6 +207,41 @@
     var li = itemOf(id);
     if (!li) return;
     if (on) li.setAttribute('data-run', '1'); else li.removeAttribute('data-run');
+  }
+
+  /* SH-G2 · 图标渐进具名：玩家"发现"某个功能的真实名字后，
+     标签从系统名（归档/文件）改成内容名（汽水屋/记录）。
+     与 SH-B1 同属一种设计语言——不是"出现新功能"，是"你知道了它的名字"。
+     持久化：通过 feed_log 长度推导（首次投喂命中后归档=汽水屋），
+     不新增存档字段，遵守 SH-7。 */
+  var ICON_RENAMES = {
+    qsw: { trigger: 'first_feed', label: '汽水屋' },
+    fm:  { trigger: 'first_feed', label: '记录' }
+  };
+
+  function shouldRename(id) {
+    var rule = ICON_RENAMES[id];
+    if (!rule) return false;
+    if (rule.trigger === 'first_feed') {
+      var o = read();
+      return (o.feed_log instanceof Array) && o.feed_log.length > 0;
+    }
+    return false;
+  }
+
+  function applyRename(id) {
+    var li = itemOf(id);
+    if (!li) return;
+    var rule = ICON_RENAMES[id];
+    if (!rule) return;
+    if (shouldRename(id)) li.setAttribute('data-label', rule.label);
+    else li.removeAttribute('data-label');
+  }
+
+  function paintRenames() {
+    for (var id in ICON_RENAMES) {
+      if (ICON_RENAMES.hasOwnProperty(id)) applyRename(id);
+    }
   }
 
   /* SH-6：标题栏恒为 app 名，永不渲染任何人名。
@@ -236,7 +289,7 @@
     var app = APPS[id];
     if (app.kind === 'frame') {
       if (narrow()) { go(app.url); return pane; }
-      pane.frame = mountFrame(el, app.url, app.label);
+      pane.frame = mountFrame(el, app.url, app.label, id === 'sd');
     } else if (app.kind === 'file') {
       SH.Views.file(el, api());
     } else if (app.kind === 'archive') {
@@ -245,13 +298,25 @@
     return pane;
   }
 
-  function mountFrame(host, url, label) {
+  function mountFrame(host, url, label, autofocus) {
     var f = doc.createElement('iframe');
     f.className = 'sh-frame';
     f.setAttribute('data-sh-frame', '');
     f.setAttribute('title', label);
     f.setAttribute('src', url);
     host.appendChild(f);
+    /* UX 打磨：素读窗口加载完成后，自动把焦点送进输入框。
+       只对 sd（有输入框的 app）做，归档 / 文件不需要。
+       失败静默降级 —— 跨源或加载异常时不打断任何东西。 */
+    if (autofocus) {
+      f.addEventListener('load', function () {
+        try {
+          var w = f.contentWindow;
+          var inp = w.document && w.document.querySelector('.sd-input');
+          if (inp) inp.focus();
+        } catch (e) { /* 静默：跨源 / 未就绪 都不管 */ }
+      });
+    }
     return f;
   }
 
@@ -300,8 +365,139 @@
     cur = id;
     win.setAttribute('data-open', '1');
     try { doc.body.setAttribute('data-sh-open', '1'); } catch (e) {}
+    updateTaskbarActive();
     paint();
     remember();
+  }
+
+  /* ── 窗口拖拽 & 缩放 ───────────────────────────────────────────────
+     标题栏按下 → 记录偏移 → 鼠标移动 → 释放。
+     右下角手柄按下 → 缩放。
+     最大化状态下不可拖拽。 */
+
+  function setWinPos(p) {
+    if (!win) return;
+    win.style.left = p.left + 'px';
+    win.style.top = p.top + 'px';
+    win.style.width = p.width + 'px';
+    win.style.height = p.height + 'px';
+  }
+
+  function getWinPos() {
+    if (!win) return Object.assign({}, DEFAULT_WIN);
+    return {
+      left: parseInt(win.style.left) || DEFAULT_WIN.left,
+      top: parseInt(win.style.top) || DEFAULT_WIN.top,
+      width: parseInt(win.style.width) || DEFAULT_WIN.width,
+      height: parseInt(win.style.height) || DEFAULT_WIN.height
+    };
+  }
+
+  function onDragStart(ev) {
+    if (maximized) return;
+    if (narrow()) return;
+    var rect = win.getBoundingClientRect();
+    dragState = { dx: ev.clientX - rect.left, dy: ev.clientY - rect.top };
+    ev.preventDefault();
+  }
+  function onDragMove(ev) {
+    if (!dragState) return;
+    var p = {
+      left: Math.max(0, ev.clientX - dragState.dx),
+      top: Math.max(0, ev.clientY - dragState.dy),
+      width: parseInt(win.style.width) || DEFAULT_WIN.width,
+      height: parseInt(win.style.height) || DEFAULT_WIN.height
+    };
+    /* 底部不越过任务栏（28px） */
+    var maxTop = g.innerHeight - 28 - 24;  // 留标题栏高度
+    if (p.top > maxTop) p.top = maxTop;
+    setWinPos(p);
+  }
+  function onDragEnd() { dragState = null; }
+
+  function onResizeStart(ev) {
+    if (maximized) return;
+    if (narrow()) return;
+    var rect = win.getBoundingClientRect();
+    resizeState = { dx: ev.clientX - rect.right, dy: ev.clientY - rect.bottom };
+    ev.preventDefault();
+    ev.stopPropagation();
+  }
+  function onResizeMove(ev) {
+    if (!resizeState) return;
+    var rect = win.getBoundingClientRect();
+    var p = getWinPos();
+    p.width = Math.max(260, p.width + (ev.clientX - rect.right - resizeState.dx));
+    p.height = Math.max(180, p.height + (ev.clientY - rect.bottom - resizeState.dy));
+    setWinPos(p);
+  }
+  function onResizeEnd() { resizeState = null; }
+
+  function toggleMax() {
+    if (narrow()) return;
+    if (!maximized) {
+      restoredPos = getWinPos();
+      win.style.left = '0';
+      win.style.top = '0';
+      win.style.width = '100%';
+      win.style.height = 'calc(100% - 28px)';
+      maximized = true;
+    } else {
+      if (restoredPos) setWinPos(restoredPos);
+      maximized = false;
+    }
+  }
+
+  /* ── 任务栏按钮 ────────────────────────────────────────────────────
+     每个运行中的 app 在任务栏上有一个按钮。
+     点击：最小化 / 还原切换。
+     当前激活的按钮有凹陷态。 */
+
+  function addTaskbarBtn(id) {
+    if (!taskbarEl || tbButtons[id]) return;
+    var app = APPS[id];
+    if (!app) return;
+    var btn = doc.createElement('button');
+    btn.type = 'button';
+    btn.className = 'sh-tb-btn';
+    btn.setAttribute('data-tb-id', id);
+    btn.innerHTML = '<span class="sh-tb-btn__ico"></span><span>' + esc(app.label) + '</span>';
+    btn.addEventListener('click', function () {
+      if (cur === id) minimize();
+      else open(id);
+    });
+    taskbarEl.appendChild(btn);
+    tbButtons[id] = btn;
+  }
+
+  function removeTaskbarBtn(id) {
+    if (!tbButtons[id]) return;
+    if (tbButtons[id].parentNode) tbButtons[id].parentNode.removeChild(tbButtons[id]);
+    tbButtons[id] = null;
+  }
+
+  function updateTaskbarActive() {
+    for (var id in tbButtons) {
+      if (!tbButtons[id]) continue;
+      if (id === cur) tbButtons[id].classList.add('sh-tb-btn--active');
+      else tbButtons[id].classList.remove('sh-tb-btn--active');
+    }
+  }
+
+  /* ── 开始菜单 ────────────────────────────────────────────────────── */
+
+  function toggleStartMenu(force) {
+    if (!startMenuEl) return;
+    var open = force !== undefined ? force : startMenuEl.getAttribute('data-open') !== '1';
+    if (open) {
+      startMenuEl.setAttribute('data-open', '1');
+      var btn = doc.querySelector('[data-sh-start]');
+      if (btn) btn.classList.add('sh-start-btn--pressed');
+    } else {
+      startMenuEl.removeAttribute('data-open');
+      var btn = doc.querySelector('[data-sh-start]');
+      if (btn) btn.classList.remove('sh-start-btn--pressed');
+    }
   }
 
   function open(id) {
@@ -317,6 +513,22 @@
        只在第一次（windowFresh 快照）触发；重开窗由 winLineShown 挡住。 */
     if (id === 'sd' && framingBoot.windowFresh) showWindowLine();
     show(id);
+
+    /* 仿真桌面：设置窗口默认位置 + 任务栏按钮 + 关闭开始菜单 */
+    if (!narrow()) {
+      if (!win.style.left) {
+        var p = Object.assign({}, DEFAULT_WIN);
+        /* 窗口宽高不超过视口的 80% */
+        var maxW = Math.floor(g.innerWidth * 0.8);
+        var maxH = Math.floor((g.innerHeight - 28) * 0.8);
+        if (p.width > maxW) p.width = maxW;
+        if (p.height > maxH) p.height = maxH;
+        setWinPos(p);
+      }
+      addTaskbarBtn(id);
+      updateTaskbarActive();
+    }
+    toggleStartMenu(false);
   }
 
   function minimize() {
@@ -327,9 +539,11 @@
     cur = null;
     win.removeAttribute('data-open');
     try { doc.body.removeAttribute('data-sh-open'); } catch (e) {}
+    updateTaskbarActive();
     paint();
     remember();
     syncReveal();
+    paintRenames();
     if (SH.Clock && SH.Clock.refresh) SH.Clock.refresh();
   }
 
@@ -347,6 +561,8 @@
     win.removeAttribute('data-open');
     try { doc.body.removeAttribute('data-sh-open'); } catch (e) {}
     if (id === 'sd') { titleReq = 0; try { doc.title = BASE_TITLE; } catch (e) {} }
+    removeTaskbarBtn(id);
+    updateTaskbarActive();
     paint();
     /* 静默采集，v1 不使用 */
     patch(function (o) {
@@ -494,10 +710,11 @@
   }
 
   /* ══ ③ 桥接（父侧）══════════════════════════════════════════════
-     白名单三条，全部纯字符串 / 纯数值：
-       title_request  子→父   素读的标题漂移由本机渲染
-       clock_sync     父→子   改时间后 app 内的时序逻辑跟随
-       open_window    子→父   v1 仅用于"存档"条目的具名
+     白名单四条，全部纯字符串 / 纯数值：
+       title_request    子→父   素读的标题漂移由本机渲染
+       clock_sync       父→子   改时间后 app 内的时序逻辑跟随
+       open_window      子→父   v1 仅用于"存档"条目的具名
+       minimize_window  子→父   Esc 请求最小化（UX · 焦点在 iframe 时的键盘可达）
      BR-1 禁传样式 · BR-2 载荷禁含 "<" · BR-3 其余 app 一律不得握手 ·
      BR-4 只有素读可以说话（它与本机同代；归档是被打开的文件，
           文件不知道自己被谁打开）。 */
@@ -536,6 +753,47 @@
       if (APPS[id]) reveal(id);
       return;
     }
+    if (d.t === 'minimize_window') {
+      /* UX 打磨：Esc 键请求最小化。
+         焦点在 iframe 内时键盘事件到不了父窗口，由子侧转发。 */
+      minimize();
+      return;
+    }
+    if (d.t === 'feed_hint') {
+      /* SH-G2 · 投喂命中提示：子侧首次投喂命中后通知父层，
+         触发图标渐进具名（归档 → 汽水屋 / 文件 → 记录）。
+         载荷：无（只需要一个信号，名字由父层 ICON_RENAMES 表决定）。
+         BR-1~BR-4 合规：只传字符串消息类型，不传样式、不含 "<"。 */
+      paintRenames();
+      return;
+    }
+    if (d.t === 'hz_tier') {
+      /* SH-G3 · 恐怖档位同步：素读侧档位变化时通知桌面壳。
+         桌面壳自己的氛围层（暗角/噪点/壁纸）跟随联动。
+         载荷：档位字符串（G/L1/L2/L3/L4/L5）。
+         BR-1~BR-4 合规：纯字符串消息。 */
+      var tier = safe(d.v);
+      if (tier) {
+        try { doc.documentElement.setAttribute('data-hz', tier); } catch (e) {}
+      }
+      return;
+    }
+    if (d.t === 'explore_nudge') {
+      /* 卡关点修复 · 探索提示：G-1 结局后触发，
+         给 qsw 图标加一个轻微的呼吸闪烁，引导玩家去探索外部网页。
+         不在对话流里加文字，不破坏结局留白。
+         只触发一次（用 shell 存档标记）。 */
+      var o = read();
+      if (o.shell.nudge_done) return;
+      patch(function (st) { st.shell.nudge_done = true; });
+      var li = itemOf('qsw');
+      if (li) {
+        li.setAttribute('data-nudge', '1');
+        /* 动画结束后移除标记，不残留状态 */
+        setTimeout(function () { li.removeAttribute('data-nudge'); }, 5500);
+      }
+      return;
+    }
     /* 白名单之外的一律丢弃，不回消息、不报错。 */
   }
 
@@ -559,22 +817,93 @@
     win = doc.querySelector('[data-sh-win]');
     bodyEl = doc.querySelector('[data-sh-body]');
     titleEl = doc.querySelector('[data-sh-title]');
+    startMenuEl = doc.querySelector('[data-sh-menu]');
+    taskbarEl = doc.querySelector('[data-sh-tb-apps]');
     if (!win || !bodyEl || !titleEl) return;
 
     /* 条目：一条一条挂，不做事件委托 —— 列表是死的，四行而已 */
     doc.querySelectorAll('[data-sh-open]').forEach(function (b) {
-      b.addEventListener('click', function () { open(b.getAttribute('data-sh-open')); });
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        open(b.getAttribute('data-sh-open'));
+      });
     });
 
     doc.querySelectorAll('[data-sh-act]').forEach(function (b) {
       var act = b.getAttribute('data-sh-act');
-      b.addEventListener('click', function () { if (act === 'close') close(); else minimize(); });
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        if (act === 'close') close();
+        else if (act === 'max') toggleMax();
+        else minimize();
+      });
+    });
+
+    /* 窗口拖拽：标题栏 */
+    var dragEl = doc.querySelector('[data-sh-drag]');
+    if (dragEl) {
+      dragEl.addEventListener('mousedown', function (ev) {
+        /* 点到控件上不拖拽 */
+        if (ev.target.closest && ev.target.closest('.sh-ctl')) return;
+        onDragStart(ev);
+      });
+      dragEl.addEventListener('dblclick', function (ev) {
+        if (ev.target.closest && ev.target.closest('.sh-ctl')) return;
+        toggleMax();
+      });
+    }
+
+    /* 窗口缩放：右下角手柄 */
+    var resizeEl = doc.querySelector('[data-sh-resize]');
+    if (resizeEl) {
+      resizeEl.addEventListener('mousedown', onResizeStart);
+    }
+
+    /* 全局鼠标移动/释放（拖拽 + 缩放共用） */
+    doc.addEventListener('mousemove', function (ev) {
+      onDragMove(ev);
+      onResizeMove(ev);
+    });
+    doc.addEventListener('mouseup', function () {
+      onDragEnd();
+      onResizeEnd();
+    });
+
+    /* 开始菜单按钮 */
+    var startBtn = doc.querySelector('[data-sh-start]');
+    if (startBtn) {
+      startBtn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        toggleStartMenu();
+      });
+    }
+
+    /* 点击空白处关闭开始菜单 */
+    doc.addEventListener('click', function () {
+      toggleStartMenu(false);
     });
 
     syncReveal();
+    paintRenames();
 
     try { g.addEventListener('message', onMessage); } catch (e) {}
     SH.Bus.on('clock_sync', broadcastClock);
+
+    /* UX 打磨：Esc 键最小化当前窗口。
+       桌面通用约定 —— 按 Esc 退回到列表，键盘用户不用伸手去点 ×/—。
+       窄屏不生效（那里是真跳转，没有"窗口"概念）。
+       时钟面板打开时 Esc 先关面板（面板自己处理），这里只管窗口。 */
+    try {
+      doc.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Escape') return;
+        if (narrow()) return;
+        if (!cur) return;
+        /* 如果时钟面板开着，不关窗口 —— 让面板自己的 Esc 处理先走
+           （面板在 iframe 内，父层这里看不到，所以直接最小化也没问题。
+           但保险起见，只在有窗口时最小化，面板关不关是子页面的事。） */
+        minimize();
+      });
+    } catch (e) { /* 静默 */ }
 
     if (SH.Clock && SH.Clock.mount) SH.Clock.mount();
 

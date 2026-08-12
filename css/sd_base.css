@@ -174,5 +174,29 @@ button, input {
 :focus-visible {
   outline: 2px solid var(--sd-dim);
   outline-offset: 1px;
-  border-radius: inherit;   /* 跟随元素圆角，避免圆形按钮套方框 */
+  border-radius: inherit;
+}
+
+/* UX 打磨：统一文本选择色（反色，极简风）。
+   浏览器默认的系统蓝色在极简白底页面上有点扎眼。 */
+::selection {
+  background: var(--sd-fg);
+  color: var(--sd-bg);
+}
+
+/* UX 打磨：滚动条样式微调（仅 webkit 生效，Firefox 自动降级为系统默认）。
+   细一点、淡一点，不抢视觉焦点。 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--sd-line);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sd-faint);
 }

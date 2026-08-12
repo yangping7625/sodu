@@ -9,6 +9,7 @@
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../css/sd_base.css">
   <link rel="stylesheet" href="../css/sd_chat.css">
+  <link rel="stylesheet" href="../css/sd_horror.css">
 </head>
 <!-- DX-01 同步项：静态标注地层，消除首帧主题跳变。
      sd_router.js 的 setAttribute 保留不动（幂等，作渐进增强）。
@@ -31,6 +32,13 @@
 
     <footer class="sd-foot" data-sd-footer></footer>
   </div>
+
+  <!-- 恐怖呈现层叠层（纸的不安）· G/L1/L2/L3/L4/L5 六档
+       全部零位图、零动画、pointer-events:none。
+       由 js/sd_dialogue.js 的 horror effect 驱动档位切换。 -->
+  <div class="sd-ghost" aria-hidden="true"></div>
+  <div class="sd-vig" aria-hidden="true"></div>
+  <div class="sd-grain" aria-hidden="true"></div>
 
   <!-- 内容层（只读）：全局 window.SD_DATA -->
   <script src="../data/sd_slice.js"></script>

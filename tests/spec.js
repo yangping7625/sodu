@@ -1188,7 +1188,7 @@ function checkShellHome() {
    把子页传上来的字符串直接塞进标题栏" —— 那一刻人名就会上去。
    所以断言钉的是【数据通路】，不是文案。                        */
 function checkShellBridge() {
-  const WHITE = ['title_request', 'clock_sync', 'open_window'];
+  const WHITE = ['title_request', 'clock_sync', 'open_window', 'minimize_window'];
   let present = 0;
 
   SH_JS.forEach(function (rel) {

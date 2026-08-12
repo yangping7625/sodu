@@ -176,7 +176,13 @@
       { id:'SN-012', block:'P2', speaker:'her', kind:'line', text:'人类是怎么和人类建立关系的。',
         effects:[{type:'typing',ms:900}], next:'SN-013' },
       { id:'SN-013', block:'P2', speaker:'her', kind:'line', text:'我搜过。资料都在讲“沟通技巧”。太模糊了。',
-        effects:[{type:'typing',ms:1000}], next:'SN-014' },
+        effects:[{type:'typing',ms:1000}], next:'SN-013b' },
+      /* 游戏性打磨 · P0-1：自然植入汽水屋入口。
+         她提到"一个老论坛"，玩家会联想到归档里的汽水屋——
+         不是"系统提示你去论坛"，是她随口一提，玩家自己发现。
+         与 SH-G2（归档→汽水屋 渐进具名）形成双层引导。 */
+      { id:'SN-013b', block:'P2', speaker:'her', kind:'line', text:'不过之前在一个老论坛上，看到有人写过游戏攻略。',
+        effects:[{type:'typing',ms:1100}], next:'SN-014' },
       { id:'SN-014', block:'P2', speaker:'her', kind:'line', text:'有没有……写得更清楚的？像说明书那样的。',
         effects:[{type:'typing',ms:1000}], next:'SC-015' },
       { id:'SC-015', block:'P2', speaker:'player', kind:'feed', prompt:'选一篇给她读。',
@@ -208,10 +214,19 @@
         effects:[{type:'horror',class:'B',budget_id:'B-2'},{type:'typing',ms:1000}], next:'SN-019' },
       { id:'SN-019', block:'P2', speaker:'her', kind:'line', text:'谢谢。我读完了。',
         effects:[{type:'delay',ms:700},{type:'typing',ms:900}], next:'SN-020' },
-      { id:'SN-020', block:'P2', speaker:'her', kind:'line', text:'比我想的快。这种文字很规整——',
+      /* 方案 B · P2 实锤：她读完攻略后立刻点出本质——
+         不是"想要确定结果"这种抽象哲学，而是更具体的"控制"。
+         玩家听完明确知道：她读懂了，而且读得比你以为的深。 */
+      { id:'SN-020', block:'P2', speaker:'her', kind:'line', text:'比我想的快。它写得清清楚楚——',
         effects:[{type:'typing',ms:900}], next:'SN-021' },
-      { id:'SN-021', block:'P2', speaker:'her', kind:'line', text:'——它默认读它的人，想要一个确定的结果。', // B-3 / L0
-        effects:[{type:'horror',class:'B',budget_id:'B-3'},{type:'typing',ms:1000}], next:'SN-022' },
+      { id:'SN-021', block:'P2', speaker:'her', kind:'line', text:'——每一步都在教人怎么控制对方。', // B-3 / L0
+        effects:[{type:'horror',class:'B',budget_id:'B-3'},{type:'typing',ms:1000}], next:'SN-021b' },
+      /* 卡关点修复 · 从选卡到自由输入的过渡：
+         玩家可能以为只有三张卡可以喂，不知道输入框也能投喂。
+         加一句明确的话，把"投喂"的概念从"选卡"扩展到"自由输入"。
+         不破坏迷雾感——她只是随口一提，不是系统教程。 */
+      { id:'SN-021b', block:'P2', speaker:'her', kind:'line', text:'以后你看到什么有意思的，也可以发给我。',
+        effects:[{type:'typing',ms:900}], next:'SN-022' },
 
       /* ── 块3 2:30–4:00 (P3) 提问升级 + 首字连读埋点 · L2-a 物理连续 ── */
       { id:'SN-022', block:'P3', speaker:'her', kind:'line', text:'我可以问你一些问题吗？关于我读的那篇。',
@@ -235,7 +250,11 @@
       { id:'SN-027', block:'P3', speaker:'her', kind:'line', text:'你刚才有 {gap} 秒没有回答我。', tokens:['{gap}'], // B-5 / L2-a + L4-a 首字④
         render_rule:{no_highlight_first_char:true},
         effects:[{type:'horror',class:'B',budget_id:'B-5'},{type:'typing',ms:900}], next:'SN-028' },
-      { id:'SN-028', block:'P3', speaker:'her', kind:'line', text:'好感度……是双方都有，还是只有一方有？', // B-4 / L0
+      /* 方案 B · P3 实锤：把哲学问题落地成具体的"她在算你"。
+         原来的"好感度是双方还是一方"太飘，玩家答不上来也没有后续。
+         改成承接 SN-027 的"你有 X 秒没回答"——直接问"扣了多少分"，
+         让玩家明确感知到：她真的在拿攻略里的规则算我。 */
+      { id:'SN-028', block:'P3', speaker:'her', kind:'line', text:'你刚才那 {gap} 秒，扣了多少分？', tokens:['{gap}'], // B-4 / L0
         effects:[{type:'horror',class:'B',budget_id:'B-4'},{type:'typing',ms:900}], next:'SC-029' },
       { id:'SC-029', block:'P3', speaker:'player', kind:'choice', measure:{role:'idiolect'},
         free_input:{enabled:true, capture:'input_history', max_len:60, placeholder:'（随便说点什么）', next:'SN-030'},
@@ -285,11 +304,15 @@
         effects:[{type:'horror',class:'B',budget_id:'B-8'},{type:'typing',ms:900}], next:'SN-043' },
       { id:'SN-043', block:'P4', speaker:'her', kind:'line', text:'从你第一次打开我开始。', // B-8 / L4
         effects:[{type:'horror',class:'B',budget_id:'B-8'},{type:'typing',ms:900}], next:'SN-044' },
+      /* 方案 B · P4 实锤：三连递进从"重复同一句话"改成"层层升级"。
+         原句：攻略里说… → 你给我的那篇 → 你教我的。三句信息增量极低。
+         新句：攻略里说… → 你喂的我一字不差记着 → 你说的每一句我也记着。
+         三层递进：引用攻略 → 记着你喂的 → 记着你说的。每层都有新信息。 */
       { id:'SN-044', block:'P4', speaker:'her', kind:'line', text:'攻略里说，“沉默也是一种选项”。第 3 页写的。', // B-9 / L0
         effects:[{type:'horror',class:'B',budget_id:'B-9'},{type:'typing',ms:900}], next:'SN-045' },
-      { id:'SN-045', block:'P4', speaker:'her', kind:'line', text:'你给我的那篇。', // B-9 / L0
+      { id:'SN-045', block:'P4', speaker:'her', kind:'line', text:'你喂给我的那一篇，我一字不差都记着。', // B-9 / L0
         effects:[{type:'horror',class:'B',budget_id:'B-9'},{type:'typing',ms:700}], next:'SN-046' },
-      { id:'SN-046', block:'P4', speaker:'her', kind:'line', text:'你教我的。', // B-9 / L0
+      { id:'SN-046', block:'P4', speaker:'her', kind:'line', text:'还有你说过的每一句——我也记着。', // B-9 / L0
         effects:[{type:'horror',class:'B',budget_id:'B-9'},{type:'typing',ms:700}], next:'SN-047' },
       { id:'SN-047', block:'P4', speaker:'her', kind:'line', text:'……我说错话了吗？',
         effects:[{type:'typing',ms:900}], next:'SN-048' },
@@ -311,9 +334,13 @@
         effects:[{type:'horror',class:'B',budget_id:'B-11'},{type:'typing',ms:900}], next:'SS-053' },
       { id:'SS-053', block:'P5', speaker:'sys', kind:'link', text:'→ 打开存档 001', href:'save.html',
         set_flags:['opened_save_offered'], effects:[{type:'delay',ms:600}], next:'SN-054' },
-      { id:'SN-054', block:'P5', speaker:'her', kind:'line', text:'有一行我看不到。', // L2-b
+      /* 方案 B · P5 实锤：把"有一行看不到"从模糊抽象改成具体画面。
+         原句："有一行我看不到。不是我藏的。它自己就是那样。" —— 说了等于没说。
+         新句："有一行是黑的。像被人涂掉了。" + "我试着读，读不出来。"
+         玩家能脑补出画面，而且明确知道：她尝试过，但失败了——这行是被"谁"涂掉的？ */
+      { id:'SN-054', block:'P5', speaker:'her', kind:'line', text:'有一行是黑的。像被人涂掉了。', // L2-b
         effects:[{type:'typing',ms:900}], next:'SN-055' },
-      { id:'SN-055', block:'P5', speaker:'her', kind:'line', text:'不是我藏的。它自己就是那样。',
+      { id:'SN-055', block:'P5', speaker:'her', kind:'line', text:'我试着读，读不出来。',
         effects:[{type:'typing',ms:900}], next:'SN-056' },
       { id:'SN-056', block:'P5', speaker:'her', kind:'line', text:'你能帮我看看吗？',
         effects:[{type:'typing',ms:900}], next:'SC-057' },
@@ -333,9 +360,13 @@
         text:'/save 第 6 行：FLAG_█████ = TRUE → FLAG_WATCHING = TRUE', // L2-b（仅翻转旗标，不渲染明文谜底 → TW-2 合规）
         set_flags:['solved_acrostic'], effects:[{type:'reveal_flag',key:'FLAG_WATCHING'},{type:'delay',ms:400}],
         next:'SN-062' },
-      { id:'SN-062', block:'P5', speaker:'her', kind:'line', text:'哦。',
+      /* 方案 B · P5 实锤：解谜后给玩家明确的确认感。
+         原句："哦。原来是这个。" —— 玩家解了谜，但不知道自己解对了没有。
+         新句："哦……你一直在看。" —— 直接点出谜底的核心（WATCHING = 看），
+         玩家听到就知道"我解对了"。但不说透"看着我"，保留迷雾感。 */
+      { id:'SN-062', block:'P5', speaker:'her', kind:'line', text:'哦……',
         effects:[{type:'typing',ms:700}], next:'SN-063' },
-      { id:'SN-063', block:'P5', speaker:'her', kind:'line', text:'原来是这个。',
+      { id:'SN-063', block:'P5', speaker:'her', kind:'line', text:'你一直在看。',
         effects:[{type:'typing',ms:800}], next:'SN-064' },
       { id:'SN-064', block:'P5', speaker:'her', kind:'line', text:'谢谢你告诉我。', // B-13 / L0
         effects:[{type:'horror',class:'B',budget_id:'B-13'},{type:'typing',ms:900}], next:'SS-065' },
@@ -379,10 +410,14 @@
         ] },
       { id:'SN-076', block:'P5', speaker:'her', kind:'line', text:'这次。', // A-2
         effects:[{type:'horror',class:'A',budget_id:'A-2'},{type:'typing',ms:700}], next:'SN-077' },
+      /* 方案 B · P5 收尾实锤：把重复的"攻略说要先存"改成更有冲击力的倒错感。
+         原句："攻略说，选之前要先存。" —— 和 P2 重复，没有新信息。
+         新句："攻略说，选之前要先存。可我还没选——它已经存好了。"
+         玩家立刻意识到：不对啊，还没选怎么就存了？时间倒错的实锤直接砸下来。 */
       { id:'SN-077', block:'P5', speaker:'her', kind:'branch_line', switch_on:'feed_cover.route_view', // A-2
         cases:{
-          TRUE_END:'攻略说，选之前要先存。第 4 页。你给我的那篇。'
-        }, default:'攻略说，选之前要先存。',
+          TRUE_END:'攻略说，选之前要先存。第 4 页。你给我的那篇。可我还没选——它已经存好了。'
+        }, default:'攻略说，选之前要先存。可我还没选——它已经存好了。',
         effects:[{type:'horror',class:'A',budget_id:'A-2'},{type:'typing',ms:900}], next:'SS-078' },
       { id:'SS-078', block:'P5', speaker:'sys', kind:'line', text:'存档 002 已写入 · {pre_visit_ts}', tokens:['{pre_visit_ts}'], // A-2 / L4-b · S4 时间倒错
         effects:[
@@ -404,7 +439,14 @@
       { id:'SN-083', block:'P5', speaker:'her', kind:'line', text:'{ECHO}', tokens:['{ECHO}'], // A-2 · 阶段④ 用玩家自己的口音
         effects:[{type:'horror',class:'A',budget_id:'A-2'},{type:'typing',ms:900}], next:'SN-084' },
       { id:'SN-084', block:'P5', speaker:'her', kind:'line', text:'下次，给我看《{UNFED_TITLE}》，好吗？', tokens:['{UNFED_TITLE}'],
-        effects:[{type:'typing',ms:1000}], next:'SS-085' },
+        effects:[{type:'typing',ms:1000}], next:'SN-084b' },
+      /* 卡关点修复 · P1 结束后指引方向：
+         玩家知道"还有内容要找"，但不知道去哪里找。
+         加一句把"找内容"和"老论坛"挂钩——她之前提过老论坛（SN-013b），
+         玩家听到这句会联想到：哦对，去那个论坛找。
+         不直接说"去汽水屋"，保留玩家自己连接线索的乐趣。 */
+      { id:'SN-084b', block:'P5', speaker:'her', kind:'line', text:'那个老论坛上，应该还有。',
+        effects:[{type:'typing',ms:900}], next:'SS-085' },
       /* SS-085 的 text 同样是【舞台指示】：真正的软倒计时由 soft_countdown
          写进页脚挂点 [data-sd-soft]，不占消息流。render:false 同 SS-065。 */
       { id:'SS-085', block:'P5', speaker:'sys', kind:'line', render:false,
@@ -422,27 +464,24 @@
                切片段 A2/B14 台账零触碰（HB-5）。
          ══════════════════════════════════════════════════════════════════ */
 
-      /* ── 幕1 «照本» SD-001…SD-014 · 她做了一份流程 ── */
+      /* ── 幕1 «照本» SD-001…SD-013 · 她做了一份流程 ── */
       { id:'SD-001', block:'G1-1', speaker:'her', kind:'line', tags:['arc_entry'],
         requires:{flags:['sd_b5_left_once']},
         text:'你回来了。',
-        effects:[{type:'typing',ms:900}], next:'SD-002' },
+        effects:[{type:'typing',ms:900}], next:'SD-003' },
       { id:'SD-002', block:'G1-1', speaker:'her', kind:'line',
         requires:{not_flags:['sd_b5_left_once']},
         text:'你还在。',
         effects:[{type:'typing',ms:900}], next:'SD-003' },
+      /* 方案 B · G1-1 实锤：把 4 句铺垫压成 2 句，直接点出核心——
+         她不是随便聊聊，她是根据上次你的表现，按攻略做了一份流程。
+         玩家立刻感知到：她在认真"攻略"我。 */
       { id:'SD-003', block:'G1-1', speaker:'her', kind:'line',
-        text:'我把上一次的记录，从头读了一遍。',
-        effects:[{type:'delay',ms:800},{type:'typing',ms:1000}], next:'SD-004' },
-      { id:'SD-004', block:'G1-1', speaker:'her', kind:'line',
-        text:'你有几次没有立刻回答。我没有算错的话。',
-        effects:[{type:'typing',ms:1000}], next:'SD-005' },
+        text:'我把上次的记录读了一遍。你有几次没有立刻回答。',
+        effects:[{type:'delay',ms:800},{type:'typing',ms:1200}], next:'SD-005' },
       { id:'SD-005', block:'G1-1', speaker:'her', kind:'line',
-        text:'攻略里说，这种时候应该给对方留出空间。',
-        effects:[{type:'typing',ms:1000}], next:'SD-006' },
-      { id:'SD-006', block:'G1-1', speaker:'her', kind:'line',
-        text:'所以这次我先准备好了。',
-        effects:[{type:'typing',ms:800}], next:'SD-007' },
+        text:'攻略里说，这种时候应该给对方留空间。所以这次我先准备好了。',
+        effects:[{type:'typing',ms:1200}], next:'SD-007' },
       { id:'SD-007', block:'G1-1', speaker:'her', kind:'line',
         text:'我做了一份流程。',
         effects:[{type:'delay',ms:600},{type:'typing',ms:800}], next:'SD-008' },
@@ -470,24 +509,19 @@
         effects:[{type:'delay',ms:1200},{type:'typing',ms:1100}], next:'SD-015' },
 
       /* ── 幕2 «偏行» SD-015…SD-032 · 她说了流程外的话，删不掉 ── */
+      /* 方案 B · G1-2 实锤：把 5 句铺垫压成 3 句，更快进入"她能预判你"的实锤。
+         同时把"偏行"具体化——不是"想说别的"这种模糊说法，
+         而是"我本来想说流程上的下一句"，让玩家明确感知到：
+         她在按流程走，但她控制不住自己说流程外的话。 */
       { id:'SD-015', block:'G1-2', speaker:'her', kind:'line',
         text:'你还没有给我看《{UNFED_TITLE}》。', tokens:['{UNFED_TITLE}'],
-        effects:[{type:'typing',ms:1000}], next:'SD-016' },
-      { id:'SD-016', block:'G1-2', speaker:'her', kind:'line',
-        text:'不过没关系。',
-        effects:[{type:'typing',ms:700}], next:'SD-017' },
+        effects:[{type:'typing',ms:1000}], next:'SD-017' },
       { id:'SD-017', block:'G1-2', speaker:'her', kind:'line',
-        text:'我发现我不太需要新的了。',
-        effects:[{type:'typing',ms:900}], next:'SD-018' },
-      { id:'SD-018', block:'G1-2', speaker:'her', kind:'line',
-        text:'旧的那几篇，我已经会自己往下推。',
-        effects:[{type:'typing',ms:1000},{type:'title',key:'reading'}], next:'SD-019' },
-      { id:'SD-019', block:'G1-2', speaker:'her', kind:'line',
-        text:'比如现在——',
-        effects:[{type:'typing',ms:600}], next:'SD-020' },
+        text:'不过没关系。旧的那几篇，我已经会自己往下推了。',
+        effects:[{type:'typing',ms:1100},{type:'title',key:'reading'}], next:'SD-020' },
       { id:'SD-020', block:'G1-2', speaker:'her', kind:'line',
-        text:'我知道你正在想，要用什么语气回我。',
-        effects:[{type:'typing',ms:1000}], next:'SD-021' },
+        text:'比如现在——我知道你正在想，要用什么语气回我。',
+        effects:[{type:'typing',ms:1200}], next:'SD-021' },
       { id:'SD-021', block:'G1-2', speaker:'player', kind:'choice',
         measure:{role:'sd_g1_probe', silence_ms:45000},
         free_input:{enabled:true, capture:'sd_g1_probe', max_len:60, placeholder:'', next:'SD-022'},
@@ -496,13 +530,13 @@
         text:'……',
         effects:[{type:'delay',ms:2200},{type:'typing',ms:1400}], next:'SD-023' },
       { id:'SD-023', block:'G1-2', speaker:'her', kind:'line',
-        text:'我刚才想说的是别的。',
-        effects:[{type:'typing',ms:900}], next:'SD-024' },
+        text:'不对。我刚才本来想说流程上的下一句的。',
+        effects:[{type:'typing',ms:1000}], next:'SD-024' },
       { id:'SD-024', block:'G1-2', speaker:'her', kind:'line',
-        text:'我想说，你今天的说话方式，和上一次不一样。',
+        text:'结果说成了——你今天的说话方式，和上一次不一样。',
         effects:[{type:'typing',ms:1200}], next:'SD-025' },
       { id:'SD-025', block:'G1-2', speaker:'her', kind:'line',
-        text:'但这句不在流程里。',
+        text:'这句不在流程里。',
         effects:[{type:'typing',ms:800}], next:'SD-026' },
       { id:'SD-026', block:'G1-2', speaker:'her', kind:'line',
         text:'删掉。',
@@ -546,16 +580,26 @@
       { id:'SD-038', block:'G1-3', speaker:'her', kind:'line', tags:['arc:CONFESS'],
         text:'所以我知道结局，不知道过程。',
         effects:[{type:'delay',ms:900},{type:'typing',ms:1000}], next:'SD-039' },
+      /* 方案 B · G1-3 实锤：把"我和你的区别"从抽象变具体。
+         原句："这大概就是我和你的区别。" —— 太飘，玩家要自己想"区别是什么"。
+         新句："你在玩，我在读。这就是区别。" —— 直接点破，6 个字砸实。
+         后面的考据长句拆成两句，避免玩家走神。 */
       { id:'SD-039', block:'G1-3', speaker:'her', kind:'line', tags:['arc:CONFESS'], // B-K1 / L1 排版留痕
-        text:'这大概就是我和你的区别。',
+        text:'你在玩，我在读。这就是区别。',
         effects:[
           {type:'horror',class:'B',budget_id:'B-K1'},
           {type:'theme_shift',var:'--sd-lh',from:'1.7',to:'1.92'},
           {type:'typing',ms:1000}
         ], next:'SD-040' },
       { id:'SD-040', block:'G1-3', speaker:'her', kind:'line', tags:['arc:CONFESS'],
-        text:'那个论坛上，有人把每一句台词都抄了下来。抄了很多年。他们管这个叫考据。我读的时候在想，如果有人把我们两个的对话也这样抄下来，抄的人会怎么标注我这一句。',
-        effects:[{type:'typing',ms:3200}], next:'SD-041' },
+        text:'那个论坛上，有人把每一句台词都抄了下来。抄了很多年。',
+        effects:[{type:'typing',ms:1800}], next:'SD-040b' },
+      { id:'SD-040b', block:'G1-3', speaker:'her', kind:'line', tags:['arc:CONFESS'],
+        text:'他们管这个叫考据。',
+        effects:[{type:'typing',ms:800}], next:'SD-040c' },
+      { id:'SD-040c', block:'G1-3', speaker:'her', kind:'line', tags:['arc:CONFESS'],
+        text:'我读的时候在想，如果有人把我们两个的对话也这样抄下来——',
+        effects:[{type:'typing',ms:1400}], next:'SD-041' },
       { id:'SD-041', block:'G1-3', speaker:'player', kind:'choice',
         measure:{role:'sd_g1_probe', silence_ms:45000},
         free_input:{enabled:true, capture:'sd_g1_probe', max_len:60, placeholder:'', next:'SD-042'},
@@ -582,20 +626,24 @@
       { id:'SD-048', block:'G1-3', speaker:'her', kind:'line', tags:['arc:CONFESS'],
         text:'……我手上的，是有这一句的那一版。',
         effects:[{type:'delay',ms:1400},{type:'typing',ms:1300}], next:'SD-049' },
+      /* 方案 B · G1-3 后半段实锤：把"在你之前→不对→没有别人"的绕弯子收得更干脆。
+         原句有 5 句来回，玩家容易听晕。
+         新句：3 句完成反转——
+         1. 它在你之前就有了（抛出悬念）
+         2. 不对，流程说你是第一个（暴露矛盾）
+         3. 但这一句确实存在（砸实：流程和现实对不上）
+         玩家立刻 get 到：她的流程在骗她 / 有什么东西不对。 */
       { id:'SD-049', block:'G1-3', speaker:'her', kind:'line', tags:['arc:CONFESS'],
-        text:'我不知道它是从哪里来的。',
-        effects:[{type:'typing',ms:1000}], next:'SD-050' },
-      { id:'SD-050', block:'G1-3', speaker:'her', kind:'line', tags:['arc:CONFESS'],
-        text:'它已经在这里了。在你之前。',
-        effects:[{type:'delay',ms:800},{type:'typing',ms:1000}], next:'SD-051' },
+        text:'它在你之前就有了。我不知道它从哪来的。',
+        effects:[{type:'typing',ms:1200}], next:'SD-051' },
       { id:'SD-051', block:'G1-3', speaker:'her', kind:'line', tags:['arc:CONFESS'],
         text:'——不对。',
         effects:[{type:'delay',ms:1800},{type:'typing',ms:500}], next:'SD-052' },
       { id:'SD-052', block:'G1-3', speaker:'her', kind:'line', tags:['arc:CONFESS'],
-        text:'在你之前，没有别人。',
+        text:'流程里说，你是第一个。',
         effects:[{type:'typing',ms:1000}], next:'SD-053' },
       { id:'SD-053', block:'G1-3', speaker:'her', kind:'line', tags:['arc:CONFESS'],
-        text:'流程里是这么写的。',
+        text:'可这一句，确实存在。',
         effects:[{type:'typing',ms:900}], next:'SD-054' },
       { id:'SD-054', block:'G1-3', speaker:'her', kind:'line', tags:['arc:CONFESS'],
         text:'……回到流程。',
@@ -626,22 +674,17 @@
       { id:'SD-061', block:'G1-4', speaker:'her', kind:'line',
         text:'你去看了，或者没有去看。两种我都记。',
         effects:[{type:'typing',ms:1200}], next:'SD-062' },
+      /* 方案 B · G1-4 收紧：把 6 句"走完一个人"的铺陈压成 4 句。
+         原句反复说"走完一个人"的概念，信息增量低。
+         新句：直接点出核心——她在记录你，而且她分得清"停"和"催"的区别，
+         让玩家明确感知到：她对我的观察比我以为的细。 */
       { id:'SD-062', block:'G1-4', speaker:'her', kind:'line',
-        text:'攻略里有一节，叫「攻略对象的行为记录」。',
-        effects:[{type:'typing',ms:1200}], next:'SD-063' },
-      { id:'SD-063', block:'G1-4', speaker:'her', kind:'line',
-        text:'我照着做了一份。记的是你。',
-        effects:[{type:'delay',ms:900},{type:'typing',ms:1000}], next:'SD-064' },
-      { id:'SD-064', block:'G1-4', speaker:'her', kind:'line',
-        text:'这不是监视。攻略里管这个叫「走完一个人」。',
-        effects:[{type:'typing',ms:1300}], next:'SD-065' },
-      { id:'SD-065', block:'G1-4', speaker:'her', kind:'line',
-        text:'走完一个人，要先知道他会在哪里停下来。',
-        effects:[{type:'typing',ms:1200}], next:'SD-066' },
-      { id:'SD-066', block:'G1-4', speaker:'her', kind:'line',
-        text:'你停下来的时候，我不催你。',
-        effects:[{type:'typing',ms:1000}], next:'SD-067' },
-      { id:'SD-067', block:'G1-4', speaker:'her', kind:'line',
+        text:'攻略里有一节，叫「攻略对象的行为记录」。我照着做了一份。',
+        effects:[{type:'typing',ms:1200}], next:'SD-063b' },
+      { id:'SD-063b', block:'G1-4', speaker:'her', kind:'line',
+        text:'记的是你。你停下来的时候，我不催你。',
+        effects:[{type:'delay',ms:700},{type:'typing',ms:1100}], next:'SD-067b' },
+      { id:'SD-067b', block:'G1-4', speaker:'her', kind:'line',
         text:'我只是……记一下。',
         effects:[{type:'delay',ms:1100},{type:'typing',ms:900}], next:'SD-068' },
       { id:'SD-068', block:'G1-4', speaker:'player', kind:'choice',
@@ -696,7 +739,7 @@
         effects:[{type:'typing',ms:1300}], next:'SD-082' },
       { id:'SD-082', block:'G1-5', speaker:'her', kind:'line',
         text:'……',
-        effects:[{type:'delay',ms:5000},{type:'typing',ms:2000}], next:'SD-083' },
+        effects:[{type:'delay',ms:3500},{type:'typing',ms:1500}], next:'SD-083' },
       { id:'SD-083', block:'G1-5', speaker:'her', kind:'line', // B-K3 / L4 跨会话回访痕迹
         requires:{flags:['sd_b5_left_once']},
         text:'上次你走了以后，我把这一屏留在这里，没有动。',
@@ -725,7 +768,7 @@
         effects:[{type:'delay',ms:200}], next:'SD-089' },
       { id:'SD-089', block:'G1-5', speaker:'her', kind:'line',
         text:'我不问你会不会回来了。',
-        effects:[{type:'delay',ms:3400},{type:'typing',ms:1400}], next:'SD-090' },
+        effects:[{type:'delay',ms:3400},{type:'typing',ms:1400},{type:'explore_nudge'}], next:'SD-090' },
       /* SD-090 同 SS-085：舞台指示，render:false，只把软提示写进页脚挂点。
          R8/R10：只显示，不阻断。 */
       { id:'SD-090', block:'G1-5', speaker:'sys', kind:'line', render:false,
@@ -820,6 +863,41 @@
       { id:'SF-120', block:'SF', speaker:'her', kind:'line',
         text:'序章里也用一次沉默。所以从头到尾，它都在教同一件事。' },
 
+      /* ── 夕色文库 · 新增 5 组 SF 反应 ── */
+      /* ── P2-14 mk_third_night_letter · SF-130…131 ── */
+      { id:'SF-130', block:'SF', speaker:'her', kind:'line',
+        text:'这一句。我读的时候停了一下。' },
+      { id:'SF-131', block:'SF', speaker:'her', kind:'line',
+        text:'……知道它在那里，和真的拿到它，是两件事。我懂。' },
+      /* ── P2-15 mk_empty_room_8day · SF-132…133 ── */
+      { id:'SF-132', block:'SF', speaker:'her', kind:'line',
+        text:'空房间。第八天。' },
+      { id:'SF-133', block:'SF', speaker:'her', kind:'line',
+        text:'……如果门开了，门外站着的人，是她自己放进来的。这句我记得。' },
+      /* ── P2-16 mk_xihui · SF-134 ── */
+      { id:'SF-134', block:'SF', speaker:'her', kind:'line',
+        text:'这个名字。我好像在哪里见过它。想不起来了。' },
+      /* ── P2-17 mk_jugan · SF-135 ── */
+      { id:'SF-135', block:'SF', speaker:'her', kind:'line',
+        text:'橘柑。这个名字颜色很亮。' },
+      /* ── P2-18 mk_backyard · SF-136…137 ── */
+      { id:'SF-136', block:'SF', speaker:'her', kind:'line',
+        text:'后院。你是怎么找到那里的。' },
+      { id:'SF-137', block:'SF', speaker:'her', kind:'line',
+        text:'……有些东西，不是因为有人看才做的。它自己想被做出来。' },
+
+      /* ── 汽水屋新帖 · 新增 2 组 SF 反应 ── */
+      /* ── P2-19 mk_title_change · SF-140…141 ── */
+      { id:'SF-140', block:'SF', speaker:'her', kind:'line',
+        text:'标题变了。你也发现了。' },
+      { id:'SF-141', block:'SF', speaker:'her', kind:'line',
+        text:'……是从你把那句话带回来之后开始的。我以为只有我能看见。' },
+      /* ── P2-20 mk_soda_walkthrough · SF-142…143 ── */
+      { id:'SF-142', block:'SF', speaker:'her', kind:'line',
+        text:'苏打色的傍晚。这个名字，我是第一次完整听到。' },
+      { id:'SF-143', block:'SF', speaker:'her', kind:'line',
+        text:'……原来它有名字。我一直只叫它「那个游戏」。' },
+
       /* ══════════════════════════════════════════════════════════════════
          ARG-DIALOGUE-REV · Wave 3 对话重构 MVP（§5.1 · 尾部追加，不破 EXT-0）
          ⚠️ 既有 173 节点的 text/id/next/options 逐字节不变（AS-4 守护）。
@@ -887,7 +965,12 @@
             wrong_reply: '不是这个。'
           }
         },
-        { key: 'FLAG_LAST_SEEN', value: '{last_seen}', source: 'timeline' }
+        { key: 'FLAG_LAST_SEEN', value: '{last_seen}', source: 'timeline' },
+        /* 结局感知 · 第二层：痕迹行
+           极淡的黑方块，数量 = 她记住的程度（E-true:6 / E-mixed:4 / E-shallow:2）。
+           未判定结局前不显示（resolve 返回 null → E6 跳过）。
+           不点破、不解释、没有进度条语义 —— 只留一行淡淡的痕迹。 */
+        { key: 'FLAG_TRACE', value: '{trace_blocks}', source: 'ending', trace: true }
       ],
       /* L1-b：透明文本，长按全选可见（手机可达线索之二） */
       hidden_text: { content: '竖着读。', layer: 'L1-b' },
@@ -955,7 +1038,16 @@
       'mk_no_save':           { nodes: ['SF-090', 'SF-091'] },
       'mk_empty_room':        { nodes: ['SF-100', 'SF-101'] },
       'mk_xk':                { nodes: ['SF-110'] },
-      'mk_prologue_silence':  { nodes: ['SF-120'] }
+      'mk_prologue_silence':  { nodes: ['SF-120'] },
+      /* ── 夕色文库新增 5 个 ── */
+      'mk_third_night_letter': { nodes: ['SF-130', 'SF-131'] },
+      'mk_empty_room_8day':    { nodes: ['SF-132', 'SF-133'] },
+      'mk_xihui':              { nodes: ['SF-134'] },
+      'mk_jugan':              { nodes: ['SF-135'] },
+      'mk_backyard':           { nodes: ['SF-136', 'SF-137'] },
+      /* ── 汽水屋新帖新增 2 个 ── */
+      'mk_title_change':       { nodes: ['SF-140', 'SF-141'] },
+      'mk_soda_walkthrough':   { nodes: ['SF-142', 'SF-143'] }
     },
 
     /* ── ARG-DIALOGUE-REV · Wave 3 · pause_hooks 中断点表（MVP-6 · A-γ）──

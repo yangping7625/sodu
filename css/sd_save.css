@@ -11,6 +11,13 @@
   letter-spacing: .02em;
   word-break: break-word;
 }
+/* 结局感知 · 第一层：标题字距微妙变化（呼应"字距变宽"设定）
+   E-true：最宽，她记得最清楚
+   E-mixed：微宽
+   E-shallow：不变（默认）
+   只有对比过多结局的玩家才会注意到，符合 R2 零泄漏 */
+.sd-slot--e-true    { letter-spacing: .12em; }
+.sd-slot--e-mixed   { letter-spacing: .06em; }
 .sd-written {
   margin: 0 0 14px;
   /* PO-SV-06：11px 在移动端中文下限之下；12px + 新灰阶（4.55:1）才读得出来 */
@@ -66,6 +73,13 @@
 .sd-flag--redacted,
 .sd-flag--redacted .sd-flag__k,
 .sd-flag--redacted .sd-flag__v { color: var(--sd-faint); }
+
+/* 结局感知 · 第二层：TRACE 行（痕迹）
+   极淡的黑方块，数量暗示她记住了多少。
+   不点破、不解释、不做进度条 —— 只留痕迹。 */
+.sd-flag--trace,
+.sd-flag--trace .sd-flag__k,
+.sd-flag--trace .sd-flag__v { color: var(--sd-faint); }
 
 /* ── 谜题输入 + 三级提示阶梯 ───────────────────────────────────────── */
 .sd-puzzle {

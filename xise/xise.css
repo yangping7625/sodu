@@ -1,0 +1,247 @@
+/* ==========================================================================
+   夕色文库 · 《苏打色的傍晚》同人志
+   暖橘色调 · 个人站风格 · 与汽水屋论坛形成对比
+   ========================================================================== */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: "宋体", SimSun, serif;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #4a3728;
+  background: #faf3ea;
+  background-image: 
+    radial-gradient(circle at 20% 10%, rgba(255, 200, 150, 0.3) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(255, 180, 120, 0.2) 0%, transparent 50%);
+  min-height: 100vh;
+}
+
+.wrapper {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 30px 20px;
+}
+
+/* ── 站头 ──────────────────────────────────────────────── */
+.site-header {
+  text-align: center;
+  padding: 40px 0 30px;
+  border-bottom: 1px solid #e0d0bc;
+  margin-bottom: 30px;
+}
+
+.site-header h1 {
+  font-family: "楷体", "KaiTi", serif;
+  font-size: 32px;
+  font-weight: normal;
+  color: #b85c28;
+  letter-spacing: 4px;
+  margin-bottom: 8px;
+}
+
+.site-header .subtitle {
+  font-size: 13px;
+  color: #8b7355;
+  letter-spacing: 2px;
+}
+
+.site-header .tagline {
+  font-size: 12px;
+  color: #a08060;
+  margin-top: 12px;
+  font-style: italic;
+}
+
+/* ── 导航 ──────────────────────────────────────────────── */
+.nav {
+  text-align: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px dashed #d4c4b0;
+}
+
+.nav a {
+  color: #8b5a2b;
+  text-decoration: none;
+  margin: 0 15px;
+  font-size: 14px;
+  letter-spacing: 1px;
+  transition: color 0.2s;
+}
+
+.nav a:hover {
+  color: #c05020;
+}
+
+.nav a.active {
+  color: #b85c28;
+  border-bottom: 2px solid #b85c28;
+  padding-bottom: 2px;
+}
+
+/* ── 正文区 ────────────────────────────────────────────── */
+.content {
+  background: rgba(255, 252, 247, 0.7);
+  border: 1px solid #e8d8c4;
+  border-radius: 4px;
+  padding: 30px 40px;
+  margin-bottom: 30px;
+}
+
+.content h2 {
+  font-family: "楷体", "KaiTi", serif;
+  font-size: 22px;
+  font-weight: normal;
+  color: #a04818;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e0d0bc;
+}
+
+.content h3 {
+  font-size: 16px;
+  color: #8b5a2b;
+  margin: 25px 0 12px;
+}
+
+.content p {
+  margin-bottom: 14px;
+  text-indent: 2em;
+}
+
+.content .meta {
+  font-size: 12px;
+  color: #a08060;
+  text-align: right;
+  margin-top: 20px;
+  padding-top: 10px;
+  border-top: 1px dashed #d4c4b0;
+}
+
+/* ── 文章列表 ──────────────────────────────────────────── */
+.article-list {
+  list-style: none;
+}
+
+.article-list li {
+  padding: 15px 0;
+  border-bottom: 1px dashed #d4c4b0;
+}
+
+.article-list li:last-child {
+  border-bottom: none;
+}
+
+.article-list .title {
+  font-size: 16px;
+  margin-bottom: 5px;
+}
+
+.article-list .title a {
+  color: #8b5a2b;
+  text-decoration: none;
+}
+
+.article-list .title a:hover {
+  color: #c05020;
+}
+
+.article-list .summary {
+  font-size: 13px;
+  color: #7a6550;
+  margin-bottom: 5px;
+}
+
+.article-list .info {
+  font-size: 12px;
+  color: #a08060;
+}
+
+/* ── 插画列表 ──────────────────────────────────────────── */
+.gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+}
+
+.gallery-item {
+  width: 240px;
+  text-align: center;
+}
+
+.gallery-item .frame {
+  width: 240px;
+  height: 180px;
+  background: linear-gradient(135deg, #f5e6d3 0%, #e8d0b4 100%);
+  border: 1px solid #d4b896;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #8b7355;
+  font-style: italic;
+}
+
+.gallery-item .caption {
+  font-size: 12px;
+  color: #7a6550;
+}
+
+/* ── 页脚 ──────────────────────────────────────────────── */
+.site-footer {
+  text-align: center;
+  padding: 20px 0;
+  font-size: 12px;
+  color: #a08060;
+  border-top: 1px solid #e0d0bc;
+}
+
+.site-footer .counter {
+  margin-top: 10px;
+  font-family: monospace;
+  color: #8b7355;
+}
+
+/* ── 隐藏页相关 ────────────────────────────────────────── */
+.hidden-hint {
+  font-size: 11px;
+  color: #c0b0a0;
+  text-align: center;
+  margin-top: 20px;
+  cursor: default;
+}
+
+.hidden-hint:hover {
+  color: #a08060;
+}
+
+/* ── 谜题页 ────────────────────────────────────────────── */
+.puzzle-box {
+  background: #f0e6d8;
+  border: 1px solid #c4a882;
+  padding: 25px;
+  margin: 20px 0;
+  font-family: "仿宋", "FangSong", serif;
+  font-size: 15px;
+  line-height: 2;
+}
+
+.puzzle-box .riddle {
+  text-align: center;
+  font-size: 16px;
+  letter-spacing: 2px;
+  color: #6b4423;
+  margin-bottom: 15px;
+}
+
+.puzzle-box .clue {
+  font-size: 13px;
+  color: #8b7355;
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px dashed #c4a882;
+}
