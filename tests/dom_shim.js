@@ -208,6 +208,34 @@ class SdElement extends SdNode {
   focus() {} blur() {} select() {} scrollIntoView() {}
   click() { this.dispatch('click'); }
 
+  /* style：最简实现（读写字符串，不做 CSS 解析） */
+  get style() {
+    const self = this;
+    if (!this._style) {
+      this._style = new Proxy({}, {
+        get(t, k) {
+          if (typeof k !== 'string') return undefined;
+          const css = self._attrs.get('style') || '';
+          const prop = k.replace(/[A-Z]/g, m => '-' + m.toLowerCase());
+          const m = new RegExp('(?:^|;)\\s*' + prop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*:\\s*([^;]*)').exec(css);
+          return m ? m[1].trim() : '';
+        },
+        set(t, k, v) {
+          const prop = k.replace(/[A-Z]/g, m => '-' + m.toLowerCase());
+          const css = self._attrs.get('style') || '';
+          const re = new RegExp('(^|;)\\s*' + prop.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*:\\s*[^;]*', 'i');
+          if (re.test(css)) {
+            self._attrs.set('style', css.replace(re, '$1 ' + prop + ': ' + v));
+          } else {
+            self._attrs.set('style', css + (css && !css.endsWith(';') ? '; ' : '') + prop + ': ' + v);
+          }
+          return true;
+        }
+      });
+    }
+    return this._style;
+  }
+
   /* 遍历 */
   walk(fn) {
     fn(this);
