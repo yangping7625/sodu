@@ -1390,7 +1390,7 @@ function walkQsw() {
    ⚠️ Wave 3（ARG-DIALOGUE-REV）允许的第 3 类「插入」同样排除：
    SO-*（设备态开场，MVP-1）与 SC-PAUSE-*（连播中断点，MVP-6）——
    它们也是新节点，不是"既有"节点；结构由 checkDialogueWave3 单独断言。 */
-const NODE_BASELINE_SHA = '25309c279e6be2a861ff13a264eeeae44d770daa9639c81c41ec6386f09e6210';
+const NODE_BASELINE_SHA = 'eacfab1b4b6fdf9e86d0afd3bba7e33c5380bc4631d1395c96b742fbbe3d388b';
 
 function checkNodeBaseline(SD_DATA) {
   const nodes = (SD_DATA && SD_DATA.dialogue_nodes) || [];

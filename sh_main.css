@@ -18,37 +18,37 @@
 
 /* ── 色板 ──────────────────────────────────────────────────────── */
 :root{
-  /* 壁纸与氛围 */
-  --sh-wall:         #008080;   /* 经典青绿色壁纸（Windows 95 风）*/
-  --sh-wall-lite:    #009090;   /* 壁纸渐变亮端 */
-  --sh-wall-dark:    #006060;   /* 壁纸渐变暗端 */
-  --sh-vig-end:      #001010;   /* 暗角终点 */
-  --sh-shadow:       #000000;   /* 硬投影 */
+  /* 壁纸与氛围（20 色板 · 大地色系） */
+  --sh-wall:         #20302c;   /* 深绿墙（主壁纸） */
+  --sh-wall-lite:    #2a3a35;   /* 壁纸渐变亮端 */
+  --sh-wall-dark:    #2e4a44;   /* 壁纸渐变暗端 */
+  --sh-vig-end:      #0c1210;   /* 暗角终点 */
+  --sh-shadow:       #141a18;   /* 硬投影 */
 
-  /* Chrome（CUA 斜面浮雕） */
-  --sh-chrome:       #c0c0c0;   /* 灰面 */
-  --sh-lite:         #ffffff;   /* 高光：上/左 */
-  --sh-dark:         #808080;   /* 暗面：下/右 */
-  --sh-darker:       #404040;   /* 更深暗面（1px 外边线） */
-  --sh-edge:         #000000;   /* 外框线 */
-  --sh-chrome-ink:   #000000;   /* chrome 文字 */
-  --sh-chrome-dim:   #808080;   /* chrome 次级文字 */
+  /* Chrome（CUA 斜面浮雕 · 大地灰） */
+  --sh-chrome:       #beb9aa;   /* 灰面 */
+  --sh-lite:         #efeee9;   /* 高光：上/左 */
+  --sh-dark:         #7c776b;   /* 暗面：下/右 */
+  --sh-darker:       #3b372f;   /* 更深暗面（1px 外边线） */
+  --sh-edge:         #16171a;   /* 外框线 */
+  --sh-chrome-ink:   #191a1c;   /* chrome 文字 */
+  --sh-chrome-dim:   #6e6a5f;   /* chrome 次级文字 */
 
   /* 标题栏 */
-  --sh-title-on:     #000080;   /* 激活标题栏（深蓝） */
-  --sh-title-on-fg:  #ffffff;   /* 激活标题字 */
-  --sh-title-off:    #808080;   /* 非激活标题栏 */
-  --sh-title-off-fg: #c0c0c0;   /* 非激活标题字 */
+  --sh-title-on:     #2e4a44;   /* 激活标题栏（深青） */
+  --sh-title-on-fg:  #efeee9;   /* 激活标题字 */
+  --sh-title-off:    #7c776b;   /* 非激活标题栏 */
+  --sh-title-off-fg: #beb9aa;   /* 非激活标题字 */
 
   /* 选中/高亮 */
-  --sh-select-bg:    #000080;   /* 选中背景（深蓝） */
-  --sh-select-fg:    #ffffff;   /* 选中文字 */
+  --sh-select-bg:    #2e4a44;   /* 选中背景（深青） */
+  --sh-select-fg:    #efeee9;   /* 选中文字 */
 
   /* 内容纸层 */
-  --sh-paper:        #ffffff;   /* 纸白 */
-  --sh-ink:          #000000;   /* 近黑 */
-  --sh-dim:          #808080;   /* 灰色 */
-  --sh-hair:         1px solid #000000;
+  --sh-paper:        #e8e4d6;   /* 纸白 */
+  --sh-ink:          #16171a;   /* 近黑 */
+  --sh-dim:          #8a867a;   /* 灰色 */
+  --sh-hair:         1px solid #16171a;
 
   /* 字体 */
   --sh-font-ui: "SimSun", "宋体", "NSimSun", "新宋体",
@@ -65,7 +65,7 @@ body[data-sh]{
   color: var(--sh-ink);
   font-family: var(--sh-font-ui);
   font-size: 12px;
-  line-height: 18px;
+  line-height: 20px;
   -webkit-text-size-adjust: 100%;
   -webkit-font-smoothing: none;
   -moz-osx-font-smoothing: grayscale;
@@ -98,7 +98,7 @@ body[data-sh] ::selection { background: var(--sh-select-bg); color: var(--sh-sel
   border-right: 1px solid var(--sh-darker);
   border-bottom: 1px solid var(--sh-darker);
 }
-::-webkit-scrollbar-thumb:hover { background: #d0d0d0; }
+::-webkit-scrollbar-thumb:hover { background: #d4d0c4; }
 ::-webkit-scrollbar-button {
   background: var(--sh-chrome);
   border-top: 1px solid var(--sh-lite);
@@ -138,28 +138,34 @@ html[data-hz="L5"] .sh-noise { opacity: .075; }
 /* ── 噪点层 ──────────────────────────────────────────────────── */
 .sh-noise{
   position: fixed; left: 0; top: 0; width: 100%; height: 100%;
-  opacity: .022; pointer-events: none; z-index: 23;
+  opacity: .028; pointer-events: none; z-index: 23;
 }
 
-/* ── 桌面图标 ──────────────────────────────────────────────────
-   左上排列，图标在上标签在下，经典 Windows 风格。
+/* ── 桌面列表（竖排单列 · R5 核心形态） ───────────────────────────
+   左上锚定，图标在上标签在下，经典列表形态。
    图标用 CUA 几何符号，不使用位图。 */
-.sh-desktop{
-  position: fixed; left: 12px; top: 12px; z-index: 2;
+.sh-list{
+  position: fixed;
+  left: max(8vw, 48px);
+  top: 60px;
+  z-index: 2;
   width: 84px;
+}
+.sh-item{
+  display: block;
 }
 .sh-icon{
   display: block; width: 84px;
   margin: 0 0 16px 0; padding: 4px 2px;
   text-align: center; cursor: pointer;
   background: transparent; border: 1px dotted transparent;
-  color: #ffffff;
-  text-shadow: 1px 1px 1px #000000;
+  color: var(--sh-title-on-fg);
+  text-shadow: 1px 1px 1px var(--sh-shadow);
 }
 .sh-icon:focus, .sh-icon:hover{
   outline: none;
-  border: 1px dotted #ffffff;
-  background: rgba(0, 0, 128, .3);
+  border: 1px dotted var(--sh-title-on-fg);
+  background: rgba(46, 74, 68, .3);
 }
 .sh-icon--selected{
   background: var(--sh-select-bg);
@@ -189,62 +195,62 @@ html[data-hz="L5"] .sh-noise { opacity: .075; }
 .g-sudu{
   left: 4px; top: 8px;
   width: 24px; height: 20px;
-  background: #ffffff;
-  border-top: 2px solid #e0e0e0;
-  border-left: 2px solid #e0e0e0;
+  background: #efeee9;
+  border-top: 2px solid #e4dfd1;
+  border-left: 2px solid #e4dfd1;
 }
 .g-sudu::before{
   content: ""; position: absolute;
   left: 3px; top: 3px; right: 3px; bottom: 8px;
-  background: #e8e8e8;
+  background: #d4d0c4;
 }
 /* 归档：文件夹 */
 .g-archive{
   left: 2px; top: 10px;
   width: 28px; height: 18px;
-  background: #ffd070;
-  border-color: #ffe090 #ffb050 #cc8030 #cc8030;
+  background: #c88a3c;
+  border-color: #c6c1b2 #beb9aa #7c776b #7c776b;
 }
 .g-archive::before{
   content: ""; position: absolute;
   left: 0; top: -5px; width: 12px; height: 5px;
-  background: #ffd070;
-  border-top: 2px solid #ffe090;
-  border-left: 2px solid #ffe090;
-  border-right: 2px solid #cc8030;
+  background: #c88a3c;
+  border-top: 2px solid #c6c1b2;
+  border-left: 2px solid #c6c1b2;
+  border-right: 2px solid #7c776b;
 }
 /* 文件：文件夹（存档） */
 .g-files{
   left: 2px; top: 10px;
   width: 28px; height: 18px;
-  background: #b0d0ff;
-  border-color: #d0e8ff #90b8e0 #6090c0 #6090c0;
+  background: #beb9aa;
+  border-color: #e4dfd1 #8a867a #3b372f #3b372f;
 }
 .g-files::before{
   content: ""; position: absolute;
   left: 0; top: -5px; width: 12px; height: 5px;
-  background: #b0d0ff;
-  border-top: 2px solid #d0e8ff;
-  border-left: 2px solid #d0e8ff;
-  border-right: 2px solid #6090c0;
+  background: #beb9aa;
+  border-top: 2px solid #e4dfd1;
+  border-left: 2px solid #e4dfd1;
+  border-right: 2px solid #3b372f;
 }
 /* 存档：软盘 */
 .g-save{
   left: 6px; top: 4px;
   width: 20px; height: 26px;
-  background: #d0d0d0;
-  border-color: #f0f0f0 #a0a0a0 #707070 #a0a0a0;
+  background: #d4d0c4;
+  border-color: #efeee9 #8a867a #6e6a5f #8a867a;
 }
 .g-save::before{
   content: ""; position: absolute;
   left: 3px; top: 2px; width: 14px; height: 8px;
-  background: #808080;
-  border: 1px solid #606060;
+  background: #7c776b;
+  border: 1px solid #4a4740;
 }
 .g-save::after{
   content: ""; position: absolute;
   left: 5px; bottom: 3px; width: 10px; height: 2px;
-  background: #606060;
+  background: #4a4740;
 }
 
 /* 运行中标记：图标微亮 */
@@ -259,13 +265,11 @@ html[data-hz="L5"] .sh-noise { opacity: .075; }
   left: 0; right: 0;
 }
 
-/* 探索提示：图标微微呼吸闪烁（游戏结束后触发，引导玩家点击）*/
-@keyframes sh-nudge-pulse {
-  0%, 100% { filter: brightness(1); opacity: 1; }
-  50% { filter: brightness(1.3); opacity: 0.85; }
-}
+/* 探索提示：图标微亮（游戏结束后触发，引导玩家点击）*/
 .sh-item[data-nudge="1"] .sh-icon__glyph .g-icon {
-  animation: sh-nudge-pulse 2.5s ease-in-out 2;
+  filter: brightness(1.15);
+  opacity: 0.9;
+  transition: opacity 80ms linear;
 }
 
 /* ── 任务栏 ──────────────────────────────────────────────────── */
@@ -301,19 +305,18 @@ html[data-hz="L5"] .sh-noise { opacity: .075; }
 }
 .sh-start-logo{
   width: 16px; height: 16px;
-  background: #ff0000;
+  background: #c88a3c;
   position: relative;
-  transform: rotate(0deg);
 }
 .sh-start-logo::before{
   content: ""; position: absolute;
   left: 0; top: 0; width: 50%; height: 50%;
-  background: #00ff00;
+  background: #efeee9;
 }
 .sh-start-logo::after{
   content: ""; position: absolute;
   right: 0; bottom: 0; width: 50%; height: 50%;
-  background: #0000ff;
+  background: #3b372f;
 }
 
 /* 任务栏分隔线 */
@@ -351,7 +354,7 @@ html[data-hz="L5"] .sh-noise { opacity: .075; }
   border-left: 1px solid var(--sh-darker);
   border-right: 1px solid var(--sh-lite);
   border-bottom: 1px solid var(--sh-lite);
-  background: #a8a8a8;
+  background: #8d8c86;
 }
 .sh-tb-btn__ico{
   width: 14px; height: 14px;
@@ -373,7 +376,7 @@ html[data-hz="L5"] .sh-noise { opacity: .075; }
 }
 .sh-tray__icon{
   width: 14px; height: 14px;
-  background: #e0e0e0;
+  background: #e4dfd1;
   border: 1px solid var(--sh-dark);
 }
 .sh-clock{
@@ -382,7 +385,7 @@ html[data-hz="L5"] .sh-noise { opacity: .075; }
   cursor: pointer;
   padding: 0 2px;
 }
-.sh-clock:hover{ background: #a0a0a0; }
+.sh-clock:hover{ background: #8a867a; }
 
 /* ── 开始菜单 ────────────────────────────────────────────────── */
 .sh-start-menu{
@@ -404,8 +407,8 @@ html[data-hz="L5"] .sh-noise { opacity: .075; }
 .sh-start-side{
   position: absolute;
   left: 0; top: 0; bottom: 0; width: 24px;
-  background: linear-gradient(180deg, #000080 0%, #1084d0 100%);
-  color: #ffffff;
+  background: #2e4a44;
+  color: #efeee9;
   writing-mode: vertical-rl;
   text-orientation: mixed;
   font-weight: bold;
@@ -414,8 +417,6 @@ html[data-hz="L5"] .sh-noise { opacity: .075; }
   text-align: center;
   letter-spacing: 2px;
 }
-
-/* 渐变预算 3/4：侧边条渐变 */
 
 .sh-start-items{
   margin-left: 24px;
@@ -510,7 +511,7 @@ html[data-hz="L5"] .sh-noise { opacity: .075; }
   border-right: 1px solid var(--sh-lite);
   border-bottom: 1px solid var(--sh-lite);
 }
-.sh-ctl--close{ color: #ff0000; }
+.sh-ctl--close{ color: #c88a3c; }
 
 /* 窗口内凹内容区 */
 .sh-body{
@@ -559,24 +560,16 @@ html[data-hz="L5"] .sh-noise { opacity: .075; }
   position: absolute; right: 0; bottom: 0;
   width: 14px; height: 14px;
   cursor: nwse-resize;
-  background:
-    linear-gradient(135deg,
-      transparent 0%, transparent 33%,
-      var(--sh-dark) 33%, var(--sh-dark) 36%,
-      transparent 36%, transparent 55%,
-      var(--sh-dark) 55%, var(--sh-dark) 58%,
-      transparent 58%, transparent 77%,
-      var(--sh-dark) 77%, var(--sh-dark) 80%,
-      transparent 80%);
+  border-right: 2px solid var(--sh-dark);
+  border-bottom: 2px solid var(--sh-dark);
 }
-/* 渐变预算 4/4：调整手柄纹理渐变 */
 
 /* ── 首启三行（FR-A） ────────────────────────────────────────── */
 .sh-framing{
   position: fixed; left: 0; top: 0; width: 100%; height: 100%;
   z-index: 40;
-  background: #000000;
-  color: #ffffff;
+  background: #16171a;
+  color: #efeee9;
   display: flex; flex-direction: column; justify-content: center;
   padding: 24px;
   font-family: var(--sh-font-mono);
@@ -634,7 +627,7 @@ html[data-hz="L5"] .sh-noise { opacity: .075; }
 
 /* ── 移动态（<720px） ──────────────────────────────────────── */
 @media (max-width: 719px){
-  .sh-desktop{ left: 8px; top: 8px; width: 76px; }
+  .sh-list{ left: 8px; top: 8px; width: 76px; }
   .sh-icon{ width: 76px; margin-bottom: 12px; }
 
   .sh-win{
@@ -657,5 +650,5 @@ html[data-hz="L5"] .sh-noise { opacity: .075; }
 /* ── 高对比模式 ──────────────────────────────────────────────── */
 @media (prefers-contrast: more){
   .sh-vig { opacity: .15; }
-  .sh-panel__l { color: #404040; }
+  .sh-panel__l { color: #3b372f; }
 }
